@@ -79,7 +79,6 @@ def do_model_run(run_name, obs_times, velocity_parameters=[285, 625+285, 0.22222
         plt.savefig(f'./plots/speeds_{run_name}.png')
         plt.close()
 
-
     if Net is not None:
         distance_metric = np.nanmean((mean_speeds - speeds_omni)**2)
         return skillscores, distance_metric

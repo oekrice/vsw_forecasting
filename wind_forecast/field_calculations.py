@@ -51,18 +51,23 @@ def get_cme_fname(src_folder, tmatch):
         return None
 
 
-def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1, 0.8, 2, 2, 3]):
+def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1, 0.8, 2, 2, 3], doplot=False):
     """
         Compute map of the solar wind speed v_r given the coronal hole boundary distance (chb, in degrees) and flux tube expansion factor (fs).
         ary -- 2019/09/13
     """
 
     s0, ph0, br0, fs, chd = fcast.load_chb_distances(run_name, snap_id)
+    if params is None and method == "wsa_scaled":
+        params = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    elif params is None and method == "wsa":
+        params = [285, 625+285, 0.22222, 1, 0.8, 2, 2, 3]
 
     params = np.abs(params)
 
     fs = fs.copy()
     chb = chd.copy()
+
 
     if method == "marion":
         # e.g. params=[200.0, 700.0, 7.0, 1/2.5]
@@ -76,9 +81,6 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
 
     if method == "wsa":
 
-        # To account for change in resolution:
-        chb1 = chb + 2
-
         # e.g. params=[285, 625+285, 0.22222, 1, 0.8, 2, 2, 3]
         vslow = params[0]
         vfast = params[1]
@@ -91,7 +93,26 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         fs[fs < 0] = 1  # numerical error leading to negative fs
         vr = (
             vslow
-            + ((vfast - vslow) / (1.0 + fs) ** a) * (b - g * np.exp(-(chb1 / w) ** d)) ** i
+            + ((vfast - vslow) / (1.0 + fs) ** a) * (b - g * np.exp(-(chb / w) ** d)) ** i
+        )
+
+    if method == "wsa_scaled":
+        #This uses the limit data file to get each parameter while keeping them reasonable.
+        scale_limits= np.loadtxt('./data/shared_data/wsa_limits.dat', delimiter = ',')
+        def scale_parameter(i, x):
+            return 0.5*(1.0 + np.tanh(x))*(scale_limits[i][1] - scale_limits[i][0]) + scale_limits[i][0]
+        vslow = scale_parameter(0, params[0])
+        vfast = scale_parameter(1, params[1])
+        a = scale_parameter(2, params[2])
+        b = scale_parameter(3, params[3])
+        g = scale_parameter(4, params[4])
+        w = scale_parameter(5, params[5])
+        d = scale_parameter(6, params[6])
+        i = scale_parameter(7, params[7])
+        fs[fs < 0] = 1  # numerical error leading to negative fs
+        vr = (
+            vslow
+            + ((vfast - vslow) / (1.0 + fs) ** a) * (b - g * np.exp(-(chb / w) ** d)) ** i
         )
 
     if method == "riley":
@@ -102,12 +123,41 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         vfast = params[3]
         vr = vslow + 0.5*(vfast - vslow) * (1.0 + np.tanh((np.deg2rad(chb) - ep) / w))
 
-    if False:
-        #Do a plot.
-        fig = plt.figure(figsize = (10,7))
-        plt.pcolormesh(vr, vmin = 0, vmax = np.percentile(vr, 99))
-        plt.colorbar()
-        plt.savefig(f'./plots/vr_{run_name}_{snap_id}.png')
+    if doplot:
+
+        #Calculate meshgrid of reasonable speeds
+        fss = np.linspace(0,300,200)
+        chbs = np.linspace(0,30,200)
+
+        fss, chbs = np.meshgrid(fss, chbs)
+        vmesh = (vslow  + ((vfast - vslow) / (1.0 + fss) ** a) * (b - g * np.exp(-(chbs / w) ** d)) ** i)
+
+        #Do a plot of the chbs, expansions, velocity map and resulting pattern
+        fig, axs = plt.subplots(2,2, figsize = (10,7))
+
+        im = axs[0,0].pcolormesh(fs, vmin = 0, vmax = np.percentile(fs, 99))
+        axs[0,0].set_title('Expansion Factors')
+        plt.colorbar(im, ax = axs[0,0])
+
+        im = axs[0,1].pcolormesh(chb, vmin = 0, vmax = np.percentile(chb, 99))
+        axs[0,1].set_title('Coronal Hole Boundary Distances')
+        plt.colorbar(im, ax = axs[0,1])
+
+        im = axs[1,0].pcolormesh(vmesh, vmin = 0, vmax = 1000)
+        axs[1,0].set_title('Velocity function')
+        plt.colorbar(im, ax = axs[1,0])
+
+        im = axs[1,1].pcolormesh(vr, vmin = 0, vmax = np.percentile(vr, 99))
+        axs[1,1].set_title('Velocity map')
+        plt.colorbar(im, ax = axs[1,1])
+
+        for i in range(2):
+            for ax in axs[i]:
+                ax.set_xticks([])
+                ax.set_yticks([])
+        plt.tight_layout()
+        plt.show()
+        #plt.savefig(f'./plots/vr_{run_name}_{snap_id}.png')
         plt.close()
 
     return vr
@@ -145,11 +195,13 @@ def update_directory(update_type, fname, snap_id, args):
         #Check for an ID in the directory. If it exists, replace it. If not,add it.
         data_added = False
         for ri, row in enumerate(directory_data):
-            if snap_id == row[1]:
+            if snap_id == int(row[1]):
+                print('Entry updated')
                 directory_data[row] = new_row_data
                 data_added = True
                 break
         if not data_added:
+            print('Entry added')
             directory_data.append(new_row_data)
         with open(directory_fname, "w", newline="") as f:
             writer = csv.writer(f)

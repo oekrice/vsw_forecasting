@@ -14,6 +14,7 @@ import huxt as H
 import huxt_analysis as HA
 
 import wind_forecast as fcast
+import csv
 
 def get_PFSS_maps_local(br_map, vr_map, phi, cotheta):
     """
@@ -200,3 +201,68 @@ def obtain_omni_data(run, target_times, overwrite=False):
 
     return dtime_omni, vsw_omni
 
+def check_existing_data(run_parameters, match_flag=True):
+    """
+    If a run name is given, check against the lookup table as to whether the lower boundary data exists for these parameters.
+    Will raise appropriate errors, if appropriate.
+    If not, will provide a database of what has been calculated for this 'name'
+
+    Code:
+    -1 for file exists but metadata is different. Flag if necessary.
+    0 for file not existing
+    1 for base model done
+    2 for chbmap done
+    """
+    fname = run_parameters["base_name"]
+    directory_fname = f'./data/{fname}/directory.csv'
+    if os.path.exists(directory_fname):
+        directory_data = []
+        with open(directory_fname, "r", encoding="utf-8") as f:
+            data = csv.reader(f)
+            for row in data:
+                directory_data.append(row)
+    else:
+        directory_data = []
+
+    #Run through each of the desired snaps and see what exists. Need integer codes for this really. They are now defined above
+    check_codes = [0]*len(run_parameters["observation_time"])
+    for row in directory_data:
+        if row[0] == "base":
+            snap_id = int(row[1])
+            if snap_id < len(check_codes):
+                expected_row = ["base", str(snap_id), str(run_parameters["observation_time"][snap_id]), str(run_parameters["r_ss"]),
+                                run_parameters["model_type"], run_parameters["data_source"],
+                                str(run_parameters["resolutions"][0]), str(run_parameters["resolutions"][1]), str(run_parameters["resolutions"][2])]
+                if row == expected_row and check_codes[snap_id] < 1:
+                    check_codes[snap_id] = 1
+                else:
+                    check_codes[snap_id] = -1
+                    if match_flag:
+                        print("Existing parameter set:", row)
+                        print("Specified parameter set", expected_row)
+                        raise Exception("Existing data doesn't match these parameters in this run. Aborting... To overwrite with these new parameters put 'match_flag=False''")
+                    else:
+                        print("Existing parameter set:", row)
+                        print("Specified parameter set", expected_row)
+                        print("New parameters do not match existing ones, but proceeding anyway. Set 'match_flag=True' to stop this")
+        elif row[0] == "chbetc":
+            snap_id = int(row[1])
+            if snap_id < len(check_codes):
+                expected_row = ["chbetc", str(snap_id), str(run_parameters["r_hb"])]
+
+                if row == expected_row and check_codes[snap_id] > -1:
+                    check_codes[snap_id] = 2
+                else:
+                    check_codes[snap_id] = -1
+                    if match_flag:
+                        print("Existing parameter set:", row)
+                        print("Specified parameter set", expected_row)
+                        raise Exception("Existing data doesn't match these parameters in this run. Aborting... To overwrite with these new parameters put 'match_flag=False''")
+                    else:
+                        print("Existing parameter set:", row)
+                        print("Specified parameter set", expected_row)
+                        print("New parameters do not match existing ones, but proceeding anyway. Set 'match_flag=True' to stop this")
+        else:
+            raise Exception('Not done this bit yet')
+
+    return check_codes
