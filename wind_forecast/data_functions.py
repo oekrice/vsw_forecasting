@@ -1,0 +1,202 @@
+#This module is to contain all the functions pertaining to obtaining or wrangling the raw data
+
+from datetime import datetime
+import os, sys
+import drms
+import numpy as np
+from scipy.io import netcdf_file
+import astropy.units as u
+
+this_directory = os.getcwd() + "/"
+sys.path.append(this_directory+'/viz/HUXt-master/code')
+import huxt_inputs as Hin
+import huxt as H
+import huxt_analysis as HA
+
+import wind_forecast as fcast
+
+def get_PFSS_maps_local(br_map, vr_map, phi, cotheta):
+    """
+    Transforms saved data into the correct units etc. to be used by HuxT. Avoids any reading/writing.
+    """
+    phi = phi * u.rad
+    theta = (np.pi / 2 - np.arccos(cotheta)) * u.rad
+    vr_lats = theta[:, 0]
+    br_lats = vr_lats
+    vr_longs = phi[0, :]
+    br_longs = vr_longs
+
+    return vr_map, vr_longs, vr_lats, br_map, br_longs, br_lats
+
+def load_chb_distances(run_name, snap_id):
+    """
+    Loads in the coronal boundary distances and expansion factors. Just for plotting etc. for now I think.
+    I'd like to avoid all readin/writing after this point for speed reasons, but that may be tricky
+
+
+    Parameters
+    ----------
+    run_name : string
+        Name of the batch, used for the folder to which the upper boundaries are saved
+    snap_id: int
+        Number of the time snap for this particular calculation
+
+    Returns
+    -------
+    distances : array
+        Distances to coronal hole boundaries
+    """
+    path = os.getcwd() + '/' + "data" + '/' + run_name
+    snap_fname = 'chb_%09d.nc' % snap_id
+
+    chb_fname = path + '/' + snap_fname
+
+    if not os.path.exists(chb_fname):
+        raise Exception('Coronal hole boundary file not ')
+    fid = netcdf_file(chb_fname, "r")
+    s0 = fid.variables["cos(th)"][:].copy()
+    ph0 = fid.variables["ph"][:].copy()
+    br0 = fid.variables["br"][:].copy()
+    fs = fid.variables["expansionFactor"][:].copy()
+    chd = fid.variables["CHBDistance"][:].copy()
+    fid.close()
+
+    return s0, ph0, br0, fs, chd
+
+def get_source_times(src_folder):
+    '''
+    #This gets the available GONG input data times
+    '''
+    times = []
+    path = os.getcwd()
+
+    if not os.path.exists(path + "/" + src_folder):
+        raise Exception(f'Data folder not found at {path + "/" + src_folder}. Check root directory location?')
+
+    for fname in os.listdir(path + "/" + src_folder):
+        if fname.startswith("evo.Earth"):
+            times.append(datetime.strptime(fname[-13:-3], "%Y%m%d%H"))
+
+    return sorted(times)
+
+def get_crot_times(data_dir=None):
+    """
+    Obtain the Carrington rotation times. To be used for modifying the HMI/MDI maps to be in line with the GONG maps
+    Uses the code I wrote for outflowpy
+    """
+
+    if data_dir is not None:
+        if os.path.exists(f'{data_dir}/crot_times.npy'):
+            try:
+                centre_times = np.load(f'{data_dir}/shared_data/crot_times.npy', allow_pickle=True)
+                return centre_times
+            except:
+                print("Carrington rotation data not found, trying to download it...")
+
+    try:
+        c = drms.Client()
+        #Find the correct Carrington Rotation for this date.
+        crot_times_mdi = c.query(('mdi.synoptic_mr_polfil_96m'), key = ["T_START","T_STOP","CAR_ROT"])
+        crot_times_hmi = c.query(('hmi.synoptic_mr_polfil_720s'), key = ["T_START","T_STOP","CAR_ROT"])
+    except:
+        raise Exception("Failed to find the Carrington Rotation database")
+
+    start_times = []
+    end_times = []
+    centre_times = []
+
+    for source, crot_times in enumerate([crot_times_mdi, crot_times_hmi]):
+        start_times_raw = list(crot_times.pop("T_START"))
+        for i in range(len(start_times_raw)):
+            if start_times_raw[i][-6:-4] == "60":
+                start_times_raw[i] = start_times_raw[i][:-6] + "00" + start_times_raw[i][-4:]
+        end_times_raw = list(crot_times.pop("T_STOP"))
+        for i in range(len(end_times_raw)):
+            if end_times_raw[i][-6:-4] == "60":
+                end_times_raw[i] = end_times_raw[i][:-6] + "00" + end_times_raw[i][-4:]
+
+        for si, crot_number in enumerate(crot_times.pop("CAR_ROT")):
+            if (crot_number < 2098 and source == 0) or (crot_number >= 2098 and source == 1):
+                start_times.append(datetime.strptime(start_times_raw[si].split('_TAI')[0], "%Y.%m.%d_%H:%M:%S"))
+                end_times.append(datetime.strptime(end_times_raw[si].split('_TAI')[0], "%Y.%m.%d_%H:%M:%S"))
+                centre_times.append(0.5*(start_times[-1] - end_times[-1]) + start_times[-1])
+
+    if data_dir is not None:
+        if not os.path.exists(data_dir):
+            os.mkdir(data_dir)
+        if not os.path.exists(f'{data_dir}/shared_data'):
+            os.mkdir(f'{data_dir}/shared_data')
+
+        np.save(f'{data_dir}/shared_data/crot_times.npy', centre_times)
+
+    return np.array(centre_times)
+
+def obtain_enlil_data(run, target_times = []):
+    """
+    Obtains the met office enlil predicions and saves out in the same format as those generated by my PFSS or outflow calculations
+    """
+
+    path = os.getcwd()
+    wsapath = path + "/GONG/"
+    all_dtime_wsa = []
+    all_vsw_wsa = []
+
+    obs_times = get_observation_times("GONG")
+
+    for time in obs_times[:]:
+        wsafile = time.strftime("evo.Earth.%Y%m%d%H.nc")
+        fh = netcdf_file(wsapath+wsafile, "r", mmap=False)
+        t_wsa = fh.variables["TIME"][:]
+        v1_wsa = fh.variables["V1"][:]
+        fh.close()
+        dtime_wsa0 = datetime.datetime.strptime(wsafile, "evo.Earth.%Y%m%d%H.nc")
+        dtime_wsa1 = np.array([dtime_wsa0 + datetime.timedelta(seconds=int(t)) for t in t_wsa])
+        # ind = [(t > dtime_wsa0) for t in dtime_wsa1]
+        all_dtime_wsa.append(dtime_wsa1[dtime_wsa1 > dtime_wsa0])
+        all_vsw_wsa.append(v1_wsa[dtime_wsa1 > dtime_wsa0]/1e3)
+
+    dtime_wsa, vsw_wsa = get_average_speeds(all_dtime_wsa, all_vsw_wsa, spinup_time = 0.0, target_times = target_times)
+
+    dtime_wsa = np.array(dtime_wsa)
+    vsw_wsa = np.array(vsw_wsa)
+
+    np.savetxt((path + '/data/' + run + '/times_enlil.txt'), dtime_wsa.astype("datetime64[s]").astype(str), fmt="%s")
+    np.savetxt((path + '/data/' + run + '/vs_enlil.txt'), vsw_wsa)
+
+    return dtime_wsa, vsw_wsa
+
+def obtain_omni_data(run, target_times, overwrite=False):
+    """
+    Downloads the OMNI data and saves in the standard format
+    """
+    redo = False
+    if not os.path.exists('./data/' + run + '/times_omni.txt') or not os.path.exists('./data/' + run + '/vs_omni.txt') or overwrite:
+        redo = True
+    else:
+        #Check time data matches
+        dtime_omni = np.loadtxt('./data/' + run + '/times_omni.txt', dtype='datetime64[s]', delimiter = ',')
+        if dtime_omni[0] != target_times[0] or dtime_omni[-1] != target_times[-1]:
+            redo = True
+
+    if redo:
+        print('Downloading OMNI data')
+        path = os.getcwd()
+
+        dtime_min = target_times[0]
+        dtime_max = target_times[-1]
+
+        data_omni = Hin.get_omni(dtime_min, dtime_max)
+        all_dtime_omni = [data_omni['datetime']]
+        all_vsw_omni = [data_omni['V'].values]
+
+        dtime_omni, vsw_omni = fcast.get_average_speeds(all_dtime_omni, all_vsw_omni, spinup_time = 0.0, cadence=24, target_times=target_times, verbose=True)
+
+        np.savetxt(('./data/' + run + '/times_omni.txt'), dtime_omni.astype("datetime64[s]").astype(str), fmt="%s")
+        np.savetxt(('./data/' + run + '/vs_omni.txt'), vsw_omni)
+
+    else:
+        dtime_omni = np.loadtxt('./data/' + run + '/times_omni.txt', dtype='datetime64[s]', delimiter = ',')
+        vsw_omni = np.loadtxt('./data/' + run + '/vs_omni.txt', delimiter = ',')
+
+    return dtime_omni, vsw_omni
+

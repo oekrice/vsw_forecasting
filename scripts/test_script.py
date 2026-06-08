@@ -5,15 +5,15 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import cma
+import csv
 from datetime import datetime
 
 import wind_forecast as fcast  #This should now contain everything we need...
 
 #This script should just run the base model and HuxT, at a low resolution.
 #Will automatically create a run ID with parameters encoded into the outputs, one hopes.
-print('running')
 
-obs_time = datetime(2010, 1, 1)
+obs_time = [datetime(2010, 1, 1)]#, datetime(2010, 1, 2), datetime(2010, 1, 3)]
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -22,15 +22,78 @@ obs_time = datetime(2010, 1, 1)
 #Can specify file name to look up WSA parameters? Yeah, probably.
 
 test_parameters = {"observation_time": obs_time,
-                  "run_name": None,
-                  "model_type": "outflow",
+                  "base_name": "test1",
+                  "model_type": "pfss",
                   "calculate_base_model": True,
+                  "overwrite_base_model": False,
                   "calculate_huxt": True,
-                  "r_ss": 2.5,
+                  "r_ss": 5.0,
                   "WSA_type": "standard",
                   "WSA_parameters": None,
-                  "verbose": True}
+                  "verbose": True,
+                  "data_source": "hmi",
+                  "resolutions": [60,90,180],
+                  "r_hb": 21.5,
+                  "match_flag": True}
 
+def check_existing_data(run_parameters, match_flag=True):
+    """
+    If a run name is given, check against the lookup table as to whether the lower boundary data exists for these parameters.
+    Will raise appropriate errors, if appropriate.
+    If not, will provide a database of what has been calculated for this 'name'
+
+    Code:
+    -1 for file exists but metadata is different. Flag if necessary.
+    0 for file not existing
+    1 for base model done
+    2 for chbmap done
+    """
+    fname = run_parameters["base_name"]
+    directory_fname = f'./data/{fname}/directory.csv'
+    if os.path.exists(directory_fname):
+        directory_data = []
+        with open(directory_fname, "r", encoding="utf-8") as f:
+            data = csv.reader(f)
+            for row in data:
+                directory_data.append(row)
+    else:
+        directory_data = []
+
+    #Run through each of the desired snaps and see what exists. Need integer codes for this really. They are now defined above
+    check_codes = [0]*len(run_parameters["observation_time"])
+    for row in directory_data:
+        if row[0] == "base":
+            snap_id = int(row[1])
+            expected_row = ["base", str(snap_id), str(run_parameters["observation_time"][snap_id]), str(run_parameters["r_ss"]),
+                            run_parameters["model_type"], run_parameters["data_source"],
+                            str(run_parameters["resolutions"][0]), str(run_parameters["resolutions"][1]), str(run_parameters["resolutions"][2])]
+            if row == expected_row and check_codes[snap_id] < 1:
+                check_codes[snap_id] = 1
+            else:
+                check_codes[snap_id] = -1
+                if match_flag:
+                    print("Existing parameter set:", row)
+                    print("Specified parameter set", expected_row)
+                    raise Exception("Existing data doesn't match these parameters in this run. Aborting... To overwrite with these new parameters put 'match_flag=False''")
+                else:
+                    print("New parameters do not match existing ones, but proceeding anyway. Set 'match_flag=True' to stop this")
+        elif row[0] == "chbetc":
+            snap_id = int(row[1])
+            expected_row = ["chbetc", str(snap_id), str(run_parameters["r_hb"])]
+            if row == expected_row:
+                check_codes[snap_id] = 2
+            else:
+                check_codes[snap_id] = -1
+                if match_flag:
+                    print("Existing parameter set:", row)
+                    print("Specified parameter set", expected_row)
+                    raise Exception("Existing data doesn't match these parameters in this run. Aborting... To overwrite with these new parameters put 'match_flag=False''")
+                else:
+                    print("New parameters do not match existing ones, but proceeding anyway. Set 'match_flag=True' to stop this")
+        else:
+            raise Exception('Not done this bit yet')
+
+    return check_codes
 
 def run_model(run_parameters):
     """
@@ -40,10 +103,45 @@ def run_model(run_parameters):
     """
 
     #Cycle through the reuqested observation times. Can be just one, or several
+    if "observation_time" in run_parameters:
+        if not isinstance(run_parameters["observation_time"], (list, np.ndarray)):
+            run_parameters["observation_time"] = [run_parameters["observation_time"]]
+    else:
+        raise Exception('Observation time not provided.')
 
+    if run_parameters["base_name"] is not None:
+        if "match_flag" in run_parameters:
+            data_lookup = check_existing_data(run_parameters, match_flag = run_parameters["match_flag"]) #Will eventually output flags as to whether these data have been already succesfully calculated with the given inputs.
+        else:
+            data_lookup = check_existing_data(run_parameters, match_flag = True)
+    else:
+        data_lookup = [0] * len(run_parameters["observation_time"])
+
+    if run_parameters["model_type"] == "outflow":
+        is_pfss = False
+    elif run_parameters["model_type"] == "pfss":
+        is_pfss = True
+    else:
+        raise Exception("Model type not recognised. Need 'outflow' or 'pfss'")
+
+    if run_parameters["base_name"] is not None:
+        run_name = run_parameters["base_name"]
+    else:
+        run_name = "tmp"
+
+    for snap_id, obs_time in enumerate(run_parameters["observation_time"]):
+        if run_parameters["calculate_base_model"]:  #Do the PFSS/Outflow calculation
+
+            #Check if base model already exists for these data, and the metadata all match (should put this check in an extra function. Each 'data' file should have a lookup table for it, I think)
+            if data_lookup[snap_id] < 1: #The base model data doesn't exist, so recalculate
+                fcast.calculate_outflow(snap_id,  obs_time, rss = run_parameters["r_ss"],
+                                        overwrite=True, is_pfss=is_pfss, output_directory=run_name, save_snap=True,
+                                        source= run_parameters["data_source"],resolutions=run_parameters["resolutions"])
+            if data_lookup[snap_id] < 2: #The CHB and expansion factor data doesn't exist, so do that.
+                fcast.calculate_chb_exp(snap_id,  run_name, r_hb = run_parameters["r_hb"], purge_data=True)
 
     sys.exit()
-    alltimes = []; allspeeds = []
+
     for snap_id in snap_subset:
         if verbose:
             print(f'Doing snap {snap_id} of {len(snap_subset)}')
@@ -78,7 +176,6 @@ def run_model(run_parameters):
             np.savetxt('./data/' + run_name + '/times.txt', mean_times.astype("datetime64[s]").astype(str), fmt="%s")
             np.savetxt('./data/' + run_name + '/vs.txt', mean_speeds, delimiter = ',')
 
-
     mean_times, mean_speeds = fcast.get_average_speeds(alltimes, allspeeds, spinup_time = 5, cadence = 24)
 
     np.savetxt('./data/' + run_name + '/times.txt', mean_times.astype("datetime64[s]").astype(str), fmt="%s")
@@ -107,4 +204,4 @@ def run_model(run_parameters):
     else:
         return skillscores
 
-#run_model(test_parameters)
+run_model(test_parameters)
