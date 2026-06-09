@@ -96,7 +96,7 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
     alltimes = []
     allspeeds = []
     allspeeds_ref = []
-    for snap_id in snap_subset:
+    for si, snap_id in enumerate(snap_subset):
         obs_time = run_parameters["observation_time"][snap_id]
         if run_parameters["verbose"]:
             print(f'Running HuXT forecast model at time {obs_time}')
@@ -118,22 +118,6 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
         allspeeds.append(model_speeds)
         allspeeds_ref.append(omni_speeds)
 
-        if run_parameters["optimisation_type"] == "dtw":
-            dtw_distance = dtw.distance(omni_speeds, model_speeds)
-            skillscores.append(dtw_distance)
-        elif run_parameters["optimisation_type"] == "least_squares":
-            speeds = np.concatenate(allspeeds)
-            speeds_ref = np.concatenate(allspeeds_ref)
-            leastsquares_distance = np.sqrt(np.mean((speeds - speeds_ref)**2))
-            skillscores.append(leastsquares_distance)
-        elif run_parameters["optimisation_type"] == "wasserstein":
-            speeds = np.concatenate(allspeeds)
-            speeds_ref = np.concatenate(allspeeds_ref)
-            wasserstein_distance = fcast.get_wasserstein_distance(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=snap_id, doplots=run_parameters["do_plots"])
-            skillscores.append(wasserstein_distance)
-        else:
-            raise Exception('Optimisation type not recognised')
-
         if run_parameters["do_plots"]:
             if not os.path.exists('plots'):
                 os.mkdir('plots')
@@ -148,6 +132,26 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
             print(f'Plot saved to {'./plots/%s/timeseries_%05d.png' % (run_parameters["run_name"], iteration)}')
             #plt.show()
             plt.close()
+
+    if run_parameters["optimisation_type"] == "dtw":
+        #For DTW, need to compare each set individually, which I concede is a bit of a pain.
+        for si in range(len(allspeeds)):
+            omni_speeds = allspeeds_ref[si]
+            model_speeds = allspeeds[si]
+            dtw_distance = dtw.distance(omni_speeds, model_speeds)
+            skillscores.append(dtw_distance)
+    elif run_parameters["optimisation_type"] == "least_squares":
+        speeds = np.concatenate(allspeeds)
+        speeds_ref = np.concatenate(allspeeds_ref)
+        leastsquares_distance = np.sqrt(np.mean((speeds - speeds_ref)**2))
+        skillscores.append(leastsquares_distance)
+    elif run_parameters["optimisation_type"] == "wasserstein":
+        speeds = np.concatenate(allspeeds)
+        speeds_ref = np.concatenate(allspeeds_ref)
+        wasserstein_distance = fcast.get_wasserstein_distance(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=si, doplots=run_parameters["do_plots"])
+        skillscores.append(wasserstein_distance)
+    else:
+        raise Exception('Optimisation type not recognised')
 
     if run_parameters["verbose"]:
         print('Skillscore', skillscores)

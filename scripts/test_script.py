@@ -10,12 +10,14 @@ from datetime import datetime, timedelta
 
 import wind_forecast as fcast  #This should now contain everything we need...
 from dtaidistance import dtw
-
+import random
 
 #This script should just run the base model and HuxT, at a low resolution.
 #Will automatically create a run ID with parameters encoded into the outputs, one hopes.
 
-obs_time = [datetime(2010, 1, 1), datetime(2010, 1, 2), datetime(2010, 1, 3)]
+start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
+
+obs_times = [start + timedelta(days=i) for i in range(5478)]
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -23,10 +25,10 @@ obs_time = [datetime(2010, 1, 1), datetime(2010, 1, 2), datetime(2010, 1, 3)]
 #Will need a lookup table or equivalent to find data which matches things as they should.
 #Can specify file name to look up WSA parameters? Yeah, probably.
 
-test_parameters = {"observation_time": obs_time,
-                  "base_name": "test2",
-                  "run_name": "test_run",
-                  "model_type": "outflow",
+test_parameters = {"observation_time": obs_times,
+                  "base_name": "p2g",
+                  "run_name": "test_run_1",
+                  "model_type": "pfss",
                   "calculate_base_model": True,
                   "overwrite_base_model": False,
                   "calculate_huxt": True,
@@ -34,15 +36,21 @@ test_parameters = {"observation_time": obs_time,
                   "WSA_type": "standard",
                   "WSA_parameters": None,
                   "verbose": True,
-                  "data_source": "hmi",
+                  "data_source": "gong",
                   "resolutions": [120,180,360],
                   "r_hb": 21.5,
-                  "match_flag": False,
+                  "match_flag": True,
                   "velocity_type": "wsa",
                   "spinup_time": 5,
                   "forecast_length": 5,
                   "verbose": True,
                   "optimisation_type": "wasserstein",
-                  "do_plots": True}
+                  "do_plots": False}
 
-fcast.run_model(test_parameters)
+nsamples = 25
+valid_snaps = np.arange(5478)
+random.shuffle(valid_snaps)
+fcast.run_model(test_parameters, snap_subset = valid_snaps[:nsamples])
+
+
+

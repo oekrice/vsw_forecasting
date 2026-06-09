@@ -157,10 +157,11 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         axs[1,1].set_title('Velocity map')
         plt.colorbar(im, ax = axs[1,1])
 
-        # for i in range(2):
-        #     for ax in axs[i]:
-        #         ax.set_xticks([])
-        #         ax.set_yticks([])
+        for i in range(2):
+            for ax in axs[i]:
+                ax.set_xticks([])
+                ax.set_yticks([])
+
         plt.tight_layout()
         #plt.show()
         plt.savefig('./plots/%s/velocities_%05d.png' % (huxt_name, iteration))
@@ -181,62 +182,6 @@ def compute_vr_net(snap_id, run_name, Net):
 
 
     return vr
-
-def update_directory(update_type, fname, snap_id, args):
-    """
-    Updates the directory for the base directory, to check whether things need to be redone or not.
-    Exact formatting etc. needs to be determined, but a .csv is probably the best way forward?
-    """
-    directory_fname = f'./data/{fname}/directory.csv'
-    if update_type == "base":
-        if os.path.exists(directory_fname):
-            directory_data = []
-            with open(directory_fname, "r", encoding="utf-8") as f:
-                data = csv.reader(f)
-                for row in data:
-                    directory_data.append(row)
-        else:
-            directory_data = []
-
-        new_row_data = ["base", snap_id, args[0], args[1], args[2], args[3], args[4][0], args[4][1], args[4][2]]
-        #Check for an ID in the directory. If it exists, replace it. If not,add it.
-        data_added = False
-        for ri, row in enumerate(directory_data):
-            if snap_id == int(row[1]):
-                directory_data[row] = new_row_data
-                data_added = True
-                break
-        if not data_added:
-            directory_data.append(new_row_data)
-        with open(directory_fname, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerows(directory_data)
-    elif update_type == "chbetc":
-        if os.path.exists(directory_fname):
-            directory_data = []
-            with open(directory_fname, "r", encoding="utf-8") as f:
-                data = csv.reader(f)
-                for row in data:
-                    directory_data.append(row)
-        else:
-            directory_data = []
-
-        new_row_data = ["chbetc", snap_id, args[0]]
-        #Check for an ID in the directory. If it exists, replace it. If not,add it.
-        data_added = False
-        for ri, row in enumerate(directory_data):
-            if snap_id == row[1]:
-                directory_data[row] = new_row_data
-                data_added = True
-                break
-        if not data_added:
-            directory_data.append(new_row_data)
-        with open(directory_fname, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerows(directory_data)
-    else:
-        raise Exception('Update type not recognised.')
-
 
 def calculate_outflow(snap_id, obs_time, output_directory=None, overwrite=False, rss=2.5, is_pfss=False, save_snap=True, source=None, resolutions=[120,180,360]):
     """

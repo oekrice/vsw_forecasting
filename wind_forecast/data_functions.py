@@ -201,6 +201,98 @@ def obtain_omni_data(run, target_times, overwrite=False):
 
     return dtime_omni, vsw_omni
 
+def update_theta_record(test_parameters, best_loss, sigma, best_theta):
+    """
+    This should be a relatively simple one to update a theta record during an optimisation run.
+    Will hopefully then allow for fully automatic evalulation of the ability of the converged parameters.
+    """
+
+    if not os.path.exists('data'):
+        os.mkdir('data')
+    if not os.path.exists(f'data/{test_parameters["run_name"]}'):
+        os.mkdir(f'data/{test_parameters["run_name"]}')
+
+    directory_fname = f'./data/{test_parameters["run_name"]}/directory.csv'
+    if os.path.exists(directory_fname):
+        #This directory already exists. Hopefully with proper header information etc
+        directory_data = []
+        with open(directory_fname, "r", encoding="utf-8") as f:
+            data = csv.reader(f)
+            for row in data:
+                directory_data.append(row)
+    else:
+        header_row = [test_parameters["base_name"], test_parameters["optimisation_type"]]
+        directory_data = [header_row]
+
+    snap_id = len(directory_data) - 1
+    new_row_data = [snap_id, best_loss, sigma]
+    for i in range(len(best_theta)):
+        new_row_data.append(best_theta[i])
+    directory_data.append(new_row_data)
+
+    with open(directory_fname, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(directory_data)
+
+    print(f'Record updated for iteration {snap_id}')
+    return True
+
+def update_directory(update_type, fname, snap_id, args):
+    """
+    Updates the directory for the base directory, to check whether things need to be redone or not.
+    Exact formatting etc. needs to be determined, but a .csv is probably the best way forward?
+    """
+    directory_fname = f'./data/{fname}/directory.csv'
+    if update_type == "base":
+        if os.path.exists(directory_fname):
+            directory_data = []
+            with open(directory_fname, "r", encoding="utf-8") as f:
+                data = csv.reader(f)
+                for row in data:
+                    directory_data.append(row)
+        else:
+            directory_data = []
+
+        new_row_data = ["base", snap_id, args[0], args[1], args[2], args[3], args[4][0], args[4][1], args[4][2]]
+        #Check for an ID in the directory. If it exists, replace it. If not,add it.
+        data_added = False
+        for ri, row in enumerate(directory_data):
+            if snap_id == int(row[1]):
+                directory_data[row] = new_row_data
+                data_added = True
+                break
+        if not data_added:
+            directory_data.append(new_row_data)
+        with open(directory_fname, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerows(directory_data)
+    elif update_type == "chbetc":
+        if os.path.exists(directory_fname):
+            directory_data = []
+            with open(directory_fname, "r", encoding="utf-8") as f:
+                data = csv.reader(f)
+                for row in data:
+                    directory_data.append(row)
+        else:
+            directory_data = []
+
+        new_row_data = ["chbetc", snap_id, args[0]]
+        #Check for an ID in the directory. If it exists, replace it. If not,add it.
+        data_added = False
+        for ri, row in enumerate(directory_data):
+            if snap_id == row[1]:
+                directory_data[row] = new_row_data
+                data_added = True
+                break
+        if not data_added:
+            directory_data.append(new_row_data)
+        with open(directory_fname, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerows(directory_data)
+    else:
+        raise Exception('Update type not recognised.')
+
+
 def check_existing_data(run_parameters, match_flag=True):
     """
     If a run name is given, check against the lookup table as to whether the lower boundary data exists for these parameters.
