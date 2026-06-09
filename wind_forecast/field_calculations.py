@@ -51,7 +51,7 @@ def get_cme_fname(src_folder, tmatch):
         return None
 
 
-def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1, 0.8, 2, 2, 3], doplot=False):
+def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1, 0.8, 2, 2, 3], doplot=False, iteration=0, huxt_name=None):
     """
         Compute map of the solar wind speed v_r given the coronal hole boundary distance (chb, in degrees) and flux tube expansion factor (fs).
         ary -- 2019/09/13
@@ -112,8 +112,9 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         fs[fs < 0] = 1  # numerical error leading to negative fs
         vr = (
             vslow
-            + ((vfast - vslow) / (1.0 + fs) ** a) * (b - g * np.exp(-(chb / w) ** d)) ** i
+            + ((vfast - vslow) / (1.0 + fs) ** a) * (np.abs(b - g * np.exp(-(chb / w) ** d))) ** i
         )
+
 
     if method == "riley":
         # e.g. params=[0.1051, 0.0101, 333.0, 631.0]
@@ -125,9 +126,14 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
 
     if doplot:
 
+        if not os.path.exists('plots'):
+            os.mkdir('plots')
+        if not os.path.exists(f'plots/{huxt_name}'):
+            os.mkdir(f'plots/{huxt_name}')
+
         #Calculate meshgrid of reasonable speeds
-        fss = np.linspace(0,300,200)
-        chbs = np.linspace(0,30,200)
+        fss = np.linspace(0,10,200)
+        chbs = np.linspace(0,5,100)
 
         fss, chbs = np.meshgrid(fss, chbs)
         vmesh = (vslow  + ((vfast - vslow) / (1.0 + fss) ** a) * (b - g * np.exp(-(chbs / w) ** d)) ** i)
@@ -151,13 +157,14 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         axs[1,1].set_title('Velocity map')
         plt.colorbar(im, ax = axs[1,1])
 
-        for i in range(2):
-            for ax in axs[i]:
-                ax.set_xticks([])
-                ax.set_yticks([])
+        # for i in range(2):
+        #     for ax in axs[i]:
+        #         ax.set_xticks([])
+        #         ax.set_yticks([])
         plt.tight_layout()
-        plt.show()
-        #plt.savefig(f'./plots/vr_{run_name}_{snap_id}.png')
+        #plt.show()
+        plt.savefig('./plots/%s/velocities_%05d.png' % (huxt_name, iteration))
+        print(f'Plot saved to {'./plots/%s/velocities_%05d.png' % (huxt_name, iteration)}')
         plt.close()
 
     return vr
@@ -196,12 +203,10 @@ def update_directory(update_type, fname, snap_id, args):
         data_added = False
         for ri, row in enumerate(directory_data):
             if snap_id == int(row[1]):
-                print('Entry updated')
                 directory_data[row] = new_row_data
                 data_added = True
                 break
         if not data_added:
-            print('Entry added')
             directory_data.append(new_row_data)
         with open(directory_fname, "w", newline="") as f:
             writer = csv.writer(f)
@@ -408,7 +413,6 @@ def get_vsw(snap_id, run_name, obs_time, vr_bnd, r_hb=21.5, fcast_length=5, dece
     For testing, set plot2d=True to run HUXt in 2d and plot result instead of returning.
     """
 
-    print('Calculating VSW with HuxT...')
     s0, ph0, br_bnd, fs, chd = fcast.load_chb_distances(run_name, snap_id)
 
     # Latitude of Earth at simulation time:

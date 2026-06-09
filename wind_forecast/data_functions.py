@@ -53,7 +53,7 @@ def load_chb_distances(run_name, snap_id):
     chb_fname = path + '/' + snap_fname
 
     if not os.path.exists(chb_fname):
-        raise Exception('Coronal hole boundary file not ')
+        raise Exception('Coronal hole boundary file not found')
     fid = netcdf_file(chb_fname, "r")
     s0 = fid.variables["cos(th)"][:].copy()
     ph0 = fid.variables["ph"][:].copy()

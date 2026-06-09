@@ -5,7 +5,8 @@ import numpy as np
 from scipy.io import netcdf_file
 import astropy.units as u
 from scipy.interpolate import interp1d
-
+import matplotlib.pyplot as plt
+from scipy.stats import wasserstein_distance
 
 class VelocityNet():
     """
@@ -214,7 +215,27 @@ class VelocityNet():
         return
 
 
+def get_wasserstein_distance(speeds1, speeds2, nbins=101, doplots=False, huxt_name=None, iteration=0):
+    """
+    Given two (aligned) distributions of speeds, returns the Wasserstein distance between them.
+    Will bin everything between 0 and 1000 km/s. nbins is to be determined empirically?
+    """
+    hist1, _ = np.histogram(speeds1, bins=nbins, range=(0.0,1000.0))
+    hist2, _ = np.histogram(speeds2, bins=nbins, range=(0.0,1000.0))
+    hist1 = hist1/np.sum(hist1)
+    hist2 = hist2/np.sum(hist2)
+    distance = wasserstein_distance(hist1, hist2)*1000
+    if doplots:
+        fig = plt.figure(figsize=(10,7))
+        plt.plot(np.linspace(0,1000,len(hist1)), hist1)
+        plt.plot(np.linspace(0,1000,len(hist2)), hist2)
+        plt.title(f'Wasserstein Distance: {distance}')
+        plt.tight_layout()
+        plt.savefig('./plots/%s/hists_%05d.png' % (huxt_name, iteration))
+        print(f'Plot saved to {'./plots/%s/hists_%05d.png' % (huxt_name, iteration)}')
+        plt.close()
 
+    return distance
 
 def get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence=10, weighted_average = True, verbose=False, plot_averaging=False, target_times=None):
     """
@@ -254,7 +275,8 @@ def get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence=10, weighte
 
     #If there's only one set, this can be sped up quite considerably. It's only when using huxt inputs that one needs to do it the slow way
     if len(alltimes) == 1:
-        print('Doing direct interpolation (for OMNI etc.)')
+        if verbose:
+            print('Doing direct interpolation (for OMNI etc.)')
         set_num = 0
         times_secs = alltimes[set_num].astype("datetime64[s]").astype(np.int64)
         interp = interp1d(times_secs, allspeeds[set_num], bounds_error = False, fill_value= "extrapolate")
