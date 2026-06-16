@@ -32,28 +32,50 @@ plot_continuous = True   #Will wait for outputs and keep up (if possible)
 #Let's specify literally everything here, all the parameters which can happen.
 #Will need a lookup table or equivalent to find data which matches things as they should.
 #Can specify file name to look up WSA parameters? Yeah, probably.
+run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
+
+if len(sys.argv) > 1:
+    batch_id = int(sys.argv[1])
+else:
+    raise Exception('Specify batch number.')
+
+#Get the model setup depending on the batch numbers
+if (batch_id//2)%2 == 0:
+    is_pfss = True
+    model = "pfss"
+else:
+    is_pfss = False
+    model = "outflow"
+if (batch_id%2) == 0:
+    rss = 2.5
+else:
+    rss = 5.0
+if (batch_id//4) == 0:
+    source = "gong"
+else:
+    source = "hmi"
+run_name = run_names[batch_id]
 
 test_parameters = {"observation_time": obs_times,
-                  "base_name": "p2g",
-                  "run_name": run_name,
-                  "model_type": "pfss",
-                  "calculate_base_model": False,
-                  "overwrite_base_model": False,
-                  "calculate_huxt": True,
-                  "r_ss": 2.5,
-                  "WSA_type": "standard",
-                  "WSA_parameters": None,
-                  "verbose": True,
-                  "data_source": "gong",
-                  "resolutions": [120,180,360],
-                  "r_hb": 21.5,
-                  "match_flag": True,
-                  "velocity_type": "wsa",
-                  "spinup_time": 5,
-                  "forecast_length": 5,
-                  "verbose": False,
-                  "optimisation_type": "distribution",
-                  "do_plots": True}
+                "base_name": run_names[batch_id],
+                "run_name": f"optimise_run_{batch_id}",
+                "model_type": model,
+                "calculate_base_model": False,
+                "overwrite_base_model": False,
+                "calculate_huxt": False,
+                "r_ss": rss,
+                "WSA_type": "standard",
+                "WSA_parameters": None,
+                "data_source": source,
+                "resolutions": [120,180,360],
+                "r_hb": 21.5,
+                "match_flag": False,
+                "velocity_type": "wsa",
+                "spinup_time": 5,
+                "forecast_length": 5,
+                "verbose": True,
+                "optimisation_type": "distribution",
+                "do_plots": True}
 
 def evaluate_theta(theta, snap_subset, iteration):
     """

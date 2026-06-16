@@ -21,8 +21,15 @@ matplotlib.use('Agg')
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
 test_single =  False
-n_cores = 8
-nsamples = 50
+
+if "SLURM_JOB_ID" in os.environ:
+    n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
+    print('Number of slurm-allocated cores:', n_cores)
+else:
+    print('Running locally (not on slurm)')
+    n_cores = 8
+
+nsamples = 2
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -45,7 +52,6 @@ else:
     is_pfss = False
     model = "outflow"
 
-
 if (batch_id%2) == 0:
     rss = 2.5
 else:
@@ -57,7 +63,6 @@ else:
     source = "hmi"
 
 run_name = run_names[batch_id]
-
 
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],
@@ -76,9 +81,13 @@ test_parameters = {"observation_time": obs_times,
                 "velocity_type": "wsa",
                 "spinup_time": 5,
                 "forecast_length": 5,
-                "verbose": False,
+                "verbose": True,
                 "optimisation_type": "distribution",
                 "do_plots": False}
+
+#Save a log to let the thing know it's started, for loggin purposes
+np.savetxt(f'./data/{run_name}/start.dat', [n_cores])
+print('Running job with name', test_parameters['run_name'], 'using data', test_parameters['base_name'])
 
 def evaluate_with_timeout(pool, theta, timeout=60):
     result = pool.apply_async(evaluate_theta_safe, (theta,))
@@ -121,8 +130,6 @@ def run_cma_mp(n_cores=None):
     with mp.Pool(processes=n_cores) as pool:
         while not es.stop():
 
-
-            nsamples = 25
             valid_snaps = np.arange(5478)
             random.shuffle(valid_snaps)
             snap_subset = valid_snaps[:nsamples]
