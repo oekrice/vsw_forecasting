@@ -29,7 +29,7 @@ else:
     print('Running locally (not on slurm)')
     n_cores = 8
 
-nsamples = 2
+nsamples = 50
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -81,12 +81,12 @@ test_parameters = {"observation_time": obs_times,
                 "velocity_type": "wsa",
                 "spinup_time": 5,
                 "forecast_length": 5,
-                "verbose": True,
+                "verbose": False,
                 "optimisation_type": "distribution",
                 "do_plots": False}
 
 if not os.path.exists(f'./data/{test_parameters['run_name']}'):
-    os.mkdir(f''./data/{test_parameters['run_name']}'')
+    os.mkdir(f'./data/{test_parameters['run_name']}')
 
 #Save a log to let the thing know it's started, for logging purposes
 np.savetxt(f'./data/{test_parameters['run_name']}/start.dat', [n_cores])
@@ -107,6 +107,9 @@ def evaluate_theta(theta, snap_subset):
     skillscores = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset)
 
     minimiser = np.mean(skillscores)
+
+    np.savetxt(f'./data/{test_parameters['run_name']}/start_theta.dat', [theta])
+
     return minimiser
 
 def run_cma_mp(n_cores=None):
