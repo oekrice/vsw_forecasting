@@ -22,6 +22,7 @@ start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
 test_single =  False
 n_cores = 8
+nsamples = 50
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -149,7 +150,6 @@ if not test_single:
         run_cma_mp(n_cores=n_cores)
 
 else:
-    nsamples = 25
     valid_snaps = np.arange(5478)
     random.shuffle(valid_snaps)
     snap_subset = valid_snaps[:nsamples]
