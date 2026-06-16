@@ -44,7 +44,7 @@ test_parameters = {"observation_time": obs_times,
                   "spinup_time": 5,
                   "forecast_length": 5,
                   "verbose": True,
-                  "optimisation_type": "wasserstein",
+                  "optimisation_type": "distribution",
                   "do_plots": False}
 
 nsamples = 25

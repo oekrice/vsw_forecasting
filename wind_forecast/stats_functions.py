@@ -237,6 +237,28 @@ def get_wasserstein_distance(speeds1, speeds2, nbins=101, doplots=False, huxt_na
 
     return distance
 
+def get_distribution_similarity(speeds1, speeds2, nbins=101, doplots=False, huxt_name=None, iteration=0):
+    """
+    Given two (aligned) distributions of speeds, returns the squared difference between them.
+    Will bin everything between 0 and 1000 km/s. nbins is to be determined empirically?
+    """
+    hist1, _ = np.histogram(speeds1, bins=nbins, range=(0.0,1000.0))
+    hist2, _ = np.histogram(speeds2, bins=nbins, range=(0.0,1000.0))
+    hist1 = hist1/np.sum(hist1)
+    hist2 = hist2/np.sum(hist2)
+    distance = np.sum((hist1 - hist2)**2)
+    if doplots:
+        fig = plt.figure(figsize=(10,7))
+        plt.plot(np.linspace(0,1000,len(hist1)), hist1)
+        plt.plot(np.linspace(0,1000,len(hist2)), hist2)
+        plt.title(f'Distribution Distance: {distance}')
+        plt.tight_layout()
+        plt.savefig('./plots/%s/hists_%05d.png' % (huxt_name, iteration))
+        print(f'Plot saved to {'./plots/%s/hists_%05d.png' % (huxt_name, iteration)}')
+        plt.close()
+
+    return distance
+
 def get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence=10, weighted_average = True, verbose=False, plot_averaging=False, target_times=None):
     """
     Using the dtimes, speeds and parameters for spinup etc., find the average values over the specified forecast interval.

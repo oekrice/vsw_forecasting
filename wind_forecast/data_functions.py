@@ -212,7 +212,7 @@ def update_theta_record(test_parameters, best_loss, sigma, best_theta):
     if not os.path.exists(f'data/{test_parameters["run_name"]}'):
         os.mkdir(f'data/{test_parameters["run_name"]}')
 
-    directory_fname = f'./data/{test_parameters["run_name"]}/directory.csv'
+    directory_fname = f'./data/{test_parameters["run_name"]}/log.csv'
     if os.path.exists(directory_fname):
         #This directory already exists. Hopefully with proper header information etc
         directory_data = []

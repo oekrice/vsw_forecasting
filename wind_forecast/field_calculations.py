@@ -63,8 +63,6 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
     elif params is None and method == "wsa":
         params = [285, 625+285, 0.22222, 1, 0.8, 2, 2, 3]
 
-    params = np.abs(params)
-
     fs = fs.copy()
     chb = chd.copy()
 
@@ -99,6 +97,7 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
     if method == "wsa_scaled":
         #This uses the limit data file to get each parameter while keeping them reasonable.
         scale_limits= np.loadtxt('./data/shared_data/wsa_limits.dat', delimiter = ',')
+
         def scale_parameter(i, x):
             return 0.5*(1.0 + np.tanh(x))*(scale_limits[i][1] - scale_limits[i][0]) + scale_limits[i][0]
         vslow = scale_parameter(0, params[0])
@@ -109,10 +108,13 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         w = scale_parameter(5, params[5])
         d = scale_parameter(6, params[6])
         i = scale_parameter(7, params[7])
+        # print('Velocities', scale_limits)
+        # print(params)
+        # print(vslow, vfast, a, b, g, w, d, i)
+
         fs[fs < 0] = 1  # numerical error leading to negative fs
         vr = (
-            vslow
-            + ((vfast - vslow) / (1.0 + fs) ** a) * (np.abs(b - g * np.exp(-(chb / w) ** d))) ** i
+            vslow  + (vfast - vslow) * (((np.abs(b - g * np.exp(-(chb / w) ** d))) ** i)/((1.0 + fs) ** a))
         )
 
 
@@ -136,7 +138,10 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         chbs = np.linspace(0,5,100)
 
         fss, chbs = np.meshgrid(fss, chbs)
-        vmesh = (vslow  + ((vfast - vslow) / (1.0 + fss) ** a) * (b - g * np.exp(-(chbs / w) ** d)) ** i)
+        vmesh = (
+            vslow  + (vfast - vslow) * (((np.abs(b - g * np.exp(-(chbs / w) ** d))) ** i)/((1.0 + fss) ** a))
+        )
+
 
         #Do a plot of the chbs, expansions, velocity map and resulting pattern
         fig, axs = plt.subplots(2,2, figsize = (10,7))
@@ -153,7 +158,7 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         axs[1,0].set_title('Velocity function')
         plt.colorbar(im, ax = axs[1,0])
 
-        im = axs[1,1].pcolormesh(vr, vmin = 0, vmax = np.percentile(vr, 99))
+        im = axs[1,1].pcolormesh(vr, vmin = 0, vmax = 1000)
         axs[1,1].set_title('Velocity map')
         plt.colorbar(im, ax = axs[1,1])
 

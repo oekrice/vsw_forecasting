@@ -13,6 +13,8 @@ import wind_forecast as fcast  #This should now contain everything we need...
 from dtaidistance import dtw
 import random
 
+import matplotlib
+matplotlib.use('Agg')
 #This script should just run the base model and HuxT, at a low resolution.
 #Will automatically create a run ID with parameters encoded into the outputs, one hopes.
 
@@ -29,7 +31,7 @@ n_cores = 8
 
 test_parameters = {"observation_time": obs_times,
                   "base_name": "p2g",
-                  "run_name": "optimise_run_1",
+                  "run_name": "optimise_run_2",
                   "model_type": "pfss",
                   "calculate_base_model": False,
                   "overwrite_base_model": False,
@@ -46,7 +48,7 @@ test_parameters = {"observation_time": obs_times,
                   "spinup_time": 5,
                   "forecast_length": 5,
                   "verbose": False,
-                  "optimisation_type": "wasserstein",
+                  "optimisation_type": "distribution",
                   "do_plots": False}
 
 def evaluate_with_timeout(pool, theta, timeout=60):
@@ -81,7 +83,9 @@ def run_cma_mp(n_cores=None):
 
     print('Ncores:', n_cores, 'Population size', popsize)
 
-    es = cma.CMAEvolutionStrategy(np.zeros(8), 0.5, {'verb_disp': 1, 'popsize': popsize})
+    es = cma.CMAEvolutionStrategy(np.zeros(8), 0.1, {'verb_disp': 1, 'popsize': popsize})
+    if os.path.exists(f'data/{test_parameters["run_name"]}/log.csv'):
+        os.remove(f'data/{test_parameters["run_name"]}/log.csv')
 
     best_losses = []
     sigmas = []
@@ -89,7 +93,7 @@ def run_cma_mp(n_cores=None):
         while not es.stop():
 
 
-            nsamples = 2
+            nsamples = 25
             valid_snaps = np.arange(5478)
             random.shuffle(valid_snaps)
             snap_subset = valid_snaps[:nsamples]
@@ -131,11 +135,12 @@ def run_cma_mp(n_cores=None):
             if not os.path.exists(f'plots/{test_parameters["run_name"]}'):
                 os.mkdir(f'plots/{test_parameters["run_name"]}')
 
-            fig, axs = plt.subplots(2, figsize = (10,7))
-            axs[0].plot(best_losses)
-            axs[1].plot(sigmas)
-            plt.savefig('./plots/%s/converge.png' % test_parameters["run_name"])
-            plt.close()
+            if False:
+                fig, axs = plt.subplots(2, figsize = (10,7))
+                axs[0].plot(best_losses)
+                axs[1].plot(sigmas)
+                plt.savefig('./plots/%s/converge.png' % test_parameters["run_name"])
+                plt.close()
 
     return
 

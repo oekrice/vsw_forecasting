@@ -103,7 +103,10 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
 
         if run_parameters["velocity_type"] == "wsa":
             #This is the polynomial expression
-            vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+            if si == 0:
+                vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+            else:
+                vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
         else:
             raise Exception("Velocity calculation type not recognised...")
 
@@ -118,7 +121,7 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
         allspeeds.append(model_speeds)
         allspeeds_ref.append(omni_speeds)
 
-        if run_parameters["do_plots"]:
+        if run_parameters["do_plots"] and si == 0:
             if not os.path.exists('plots'):
                 os.mkdir('plots')
             if not os.path.exists(f'plots/{run_parameters["run_name"]}'):
@@ -127,7 +130,7 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
             fig = plt.figure(figsize=(10,7))
             plt.plot(omni_times, model_speeds)
             plt.plot(omni_times, omni_speeds)
-            plt.title(f'Distance metric: {skillscores[-1]}')
+            #plt.title(f'Distance metric: {skillscores[-1]}')
             plt.savefig('./plots/%s/timeseries_%05d.png' % (run_parameters["run_name"], iteration))
             print(f'Plot saved to {'./plots/%s/timeseries_%05d.png' % (run_parameters["run_name"], iteration)}')
             #plt.show()
@@ -148,8 +151,13 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
     elif run_parameters["optimisation_type"] == "wasserstein":
         speeds = np.concatenate(allspeeds)
         speeds_ref = np.concatenate(allspeeds_ref)
-        wasserstein_distance = fcast.get_wasserstein_distance(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=si, doplots=run_parameters["do_plots"])
+        wasserstein_distance = fcast.get_wasserstein_distance(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
         skillscores.append(wasserstein_distance)
+    elif run_parameters["optimisation_type"] == "distribution":
+        speeds = np.concatenate(allspeeds)
+        speeds_ref = np.concatenate(allspeeds_ref)
+        distribution_similarity = fcast.get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
+        skillscores.append(distribution_similarity)
     else:
         raise Exception('Optimisation type not recognised')
 
