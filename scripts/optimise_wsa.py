@@ -85,7 +85,10 @@ test_parameters = {"observation_time": obs_times,
                 "optimisation_type": "distribution",
                 "do_plots": False}
 
-#Save a log to let the thing know it's started, for loggin purposes
+if not os.path.exists(f'./data/{test_parameters['run_name']}'):
+    os.mkdir(f''./data/{test_parameters['run_name']}'')
+
+#Save a log to let the thing know it's started, for logging purposes
 np.savetxt(f'./data/{test_parameters['run_name']}/start.dat', [n_cores])
 print('Running job with name', test_parameters['run_name'], 'using data', test_parameters['base_name'])
 
