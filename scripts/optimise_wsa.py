@@ -86,7 +86,7 @@ test_parameters = {"observation_time": obs_times,
                 "do_plots": False}
 
 #Save a log to let the thing know it's started, for loggin purposes
-np.savetxt(f'./data/{run_name}/start.dat', [n_cores])
+np.savetxt(f'./data/{test_parameters['run_name']}/start.dat', [n_cores])
 print('Running job with name', test_parameters['run_name'], 'using data', test_parameters['base_name'])
 
 def evaluate_with_timeout(pool, theta, timeout=60):
