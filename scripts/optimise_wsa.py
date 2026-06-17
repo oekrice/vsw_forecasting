@@ -85,11 +85,11 @@ test_parameters = {"observation_time": obs_times,
                 "optimisation_type": "distribution",
                 "do_plots": False}
 
-if not os.path.exists(f'./data/{test_parameters['run_name']}'):
-    os.mkdir(f'./data/{test_parameters['run_name']}')
+if not os.path.exists(f"./data/{test_parameters['run_name']}"):
+    os.mkdir(f"./data/{test_parameters['run_name']}")
 
 #Save a log to let the thing know it's started, for logging purposes
-np.savetxt(f'./data/{test_parameters['run_name']}/start.dat', [n_cores])
+np.savetxt(f"./data/{test_parameters['run_name']}/start.dat", [n_cores])
 print('Running job with name', test_parameters['run_name'], 'using data', test_parameters['base_name'])
 
 def evaluate_with_timeout(pool, theta, timeout=60):
@@ -108,7 +108,7 @@ def evaluate_theta(theta, snap_subset):
 
     minimiser = np.mean(skillscores)
 
-    np.savetxt(f'./data/{test_parameters['run_name']}/start_theta.dat', [theta])
+    np.savetxt(f"./data/{test_parameters['run_name']}/start_theta.dat", [theta])
 
     return minimiser
 
@@ -137,8 +137,9 @@ def run_cma_mp(n_cores=None):
         while not es.stop():
 
             valid_snaps = np.arange(5478)
-            random.shuffle(valid_snaps)
-            snap_subset = valid_snaps[:nsamples]
+            if (len(sigmas)%50) == 0:
+                random.shuffle(valid_snaps)
+                snap_subset = valid_snaps[:nsamples]
 
             solutions = es.ask()
 
