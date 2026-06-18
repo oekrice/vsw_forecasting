@@ -113,7 +113,7 @@ def load_directory():
 
     return scores, sigmas, thetas
 
-nsamples = 25
+nsamples = 1
 valid_snaps = np.arange(5478)
 random.shuffle(valid_snaps)
 snap_subset = np.array([0] + list(valid_snaps[:nsamples-1]))
@@ -146,7 +146,8 @@ else:
         scores, sigmas, thetas = load_directory()
         nthetas = np.shape(thetas)[0]
         if nthetas > counter:
-            i = nthetas - 1
+            i = counter
+            #i = nthetas - 1
             fig, axs = plt.subplots(2, figsize = (10,7))
             axs[0].plot(scores)
             axs[1].plot(sigmas)
@@ -156,7 +157,8 @@ else:
             print('Current theta', thetas[i])
             skillscore = evaluate_theta(thetas[i], snap_subset=snap_subset, iteration=i)
             print('Current skillscore', skillscore)
-            counter = nthetas
+            #counter = nthetas
+            counter = counter + 1
         else:
             time.sleep(5.0)
 
