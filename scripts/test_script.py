@@ -47,7 +47,7 @@ test_parameters = {"observation_time": obs_times,
                   "optimisation_type": "distribution",
                   "do_plots": False}
 
-nsamples = 25
+nsamples = 10
 valid_snaps = np.arange(5478)
 random.shuffle(valid_snaps)
 fcast.run_model(test_parameters, snap_subset = valid_snaps[:nsamples])

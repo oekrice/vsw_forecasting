@@ -19,7 +19,7 @@ import csv
 from dtaidistance import dtw
 from scipy.ndimage import gaussian_filter
 
-def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
+def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, output_distributions=False):
     """
     Using the parameter disctionary, will run the base model AND HuxT. If a run_name is provided, will save out data as it goes.
     So many variations need to be tested here, but I think I can do it...
@@ -103,10 +103,17 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
 
         if run_parameters["velocity_type"] == "wsa":
             #This is the polynomial expression
-            if si == 0:
-                vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+            if theta is not None:
+                if si == 0:
+                    vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                else:
+                    vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
             else:
-                vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+                print('Using default WSA parameters')
+                if si == 0:
+                    vr = fcast.compute_vr(snap_id, run_name, method="wsa", params = None, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                else:
+                    vr = fcast.compute_vr(snap_id, run_name, method="wsa", params = None, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
         else:
             raise Exception("Velocity calculation type not recognised...")
 
@@ -156,14 +163,18 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0):
     elif run_parameters["optimisation_type"] == "distribution":
         speeds = np.concatenate(allspeeds)
         speeds_ref = np.concatenate(allspeeds_ref)
-        distribution_similarity = fcast.get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
+        distribution_similarity, dists = fcast.get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
         skillscores.append(distribution_similarity)
     else:
         raise Exception('Optimisation type not recognised')
 
     if run_parameters["verbose"]:
         print('Skillscore', skillscores)
-    return np.mean(skillscores)
+
+    if not output_distributions:
+        return np.mean(skillscores)
+    else:
+        return np.mean(skillscores), dists
 
 def do_model_statistics(run_name, compare_to_persist=True):
 

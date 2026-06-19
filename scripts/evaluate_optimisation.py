@@ -38,6 +38,10 @@ if len(sys.argv) > 1:
 else:
     raise Exception('Specify batch number.')
 
+
+
+
+
 #Get the model setup depending on the batch numbers
 if (batch_id//2)%2 == 0:
     is_pfss = True
@@ -75,6 +79,19 @@ test_parameters = {"observation_time": obs_times,
                 "verbose": True,
                 "optimisation_type": "distribution",
                 "do_plots": True}
+
+if not os.path.exists(f"./data/{test_parameters['run_name']}"):
+    os.mkdir(f"./data/{test_parameters['run_name']}")
+
+if not os.path.exists(f"./plots/{test_parameters['run_name']}"):
+    os.mkdir(f"./plots/{test_parameters['run_name']}")
+
+if len(sys.argv) > 2:
+    if sys.argv[2] == 'ham8':
+        print('Copying log file from Hamilton')
+        os.system(f"scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{test_parameters["run_name"]}/log.csv ./data/{test_parameters["run_name"]}/")
+    else:
+        raise Exception("Second argument not recognised. Use 'ham8' to copy Hamilton data")
 
 def evaluate_theta(theta, snap_subset, iteration):
     """

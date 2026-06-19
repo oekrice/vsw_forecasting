@@ -51,7 +51,7 @@ def get_cme_fname(src_folder, tmatch):
         return None
 
 
-def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1, 0.8, 2, 2, 3], doplot=False, iteration=0, huxt_name=None):
+def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1, 0.8, 2, 2, 3], doplot=False, iteration=0, huxt_name=None, output_cmaps = False):
     """
         Compute map of the solar wind speed v_r given the coronal hole boundary distance (chb, in degrees) and flux tube expansion factor (fs).
         ary -- 2019/09/13
@@ -154,11 +154,11 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         axs[0,1].set_title('Coronal Hole Boundary Distances')
         plt.colorbar(im, ax = axs[0,1])
 
-        im = axs[1,0].pcolormesh(vmesh, vmin = 0, vmax = 1000)
+        im = axs[1,0].pcolormesh(vmesh, vmin = 0, vmax = 1500)
         axs[1,0].set_title('Velocity function')
         plt.colorbar(im, ax = axs[1,0])
 
-        im = axs[1,1].pcolormesh(vr, vmin = 0, vmax = 1000)
+        im = axs[1,1].pcolormesh(vr, vmin = 0, vmax = 1500)
         axs[1,1].set_title('Velocity map')
         plt.colorbar(im, ax = axs[1,1])
 
@@ -173,7 +173,10 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         print(f'Plot saved to {'./plots/%s/velocities_%05d.png' % (huxt_name, iteration)}')
         plt.close()
 
-    return vr
+    if not output_cmaps:
+        return vr
+    else:
+        return vr, (vmesh, vr)
 
 def compute_vr_net(snap_id, run_name, Net):
     """

@@ -30,6 +30,7 @@ else:
     n_cores = 8
 
 nsamples = 50
+extend_current_run = True
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -66,7 +67,7 @@ run_name = run_names[batch_id]
 
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],
-                "run_name": f"optimise_run_{batch_id}",
+                "run_name": "test_run_2",#f"optimise_run_{batch_id}",
                 "model_type": model,
                 "calculate_base_model": False,
                 "overwrite_base_model": False,
@@ -112,6 +113,33 @@ def evaluate_theta(theta, snap_subset):
 
     return minimiser
 
+def load_directory():
+    directory_fname = f'./data/{test_parameters["run_name"]}/log.csv'
+    if os.path.exists(directory_fname):
+        #This directory already exists. Hopefully with proper header information etc
+        directory_data = []
+        with open(directory_fname, "r", encoding="utf-8") as f:
+            data = csv.reader(f)
+            for row in data:
+                directory_data.append(row)
+    else:
+        print(f'Directory data not found with fname {directory_fname}')
+
+    #Run through loaded directory and deduce information
+    scores = []
+    sigmas = []
+    thetas = []
+    for row in directory_data[1:]:
+        scores.append(float(row[1]))
+        sigmas.append(float(row[2]))
+        thetas.append(row[3:])
+
+    scores = np.array(scores)
+    sigmas = np.array(sigmas)
+    thetas = np.array(thetas, dtype='float')
+
+    return scores, sigmas, thetas
+
 def run_cma_mp(n_cores=None):
 
     if n_cores is None:
@@ -127,12 +155,27 @@ def run_cma_mp(n_cores=None):
 
     print('Ncores:', n_cores, 'Population size', popsize)
 
-    es = cma.CMAEvolutionStrategy(np.zeros(8), 0.1, {'verb_disp': 1, 'popsize': popsize})
-    if os.path.exists(f'data/{test_parameters["run_name"]}/log.csv'):
-        os.remove(f'data/{test_parameters["run_name"]}/log.csv')
 
-    best_losses = []
-    sigmas = []
+    if not extend_current_run:
+        if os.path.exists(f'data/{test_parameters["run_name"]}/log.csv'):
+            os.remove(f'data/{test_parameters["run_name"]}/log.csv')
+
+        es = cma.CMAEvolutionStrategy(np.zeros(8), 0.1, {'verb_disp': 1, 'popsize': popsize})
+        best_losses = []
+        sigmas = []
+
+    else:
+        if os.path.exists(f'data/{test_parameters["run_name"]}/log.csv'):
+            scores, sigmas, thetas = load_directory()
+            sigmas = list(sigmas)
+            best_losses = list(scores)
+            es = cma.CMAEvolutionStrategy(thetas[-1], sigmas[-1], {'verb_disp': 1, 'popsize': popsize})
+
+        else:
+            best_losses = []
+            sigmas = []
+            es = cma.CMAEvolutionStrategy(np.zeros(8), 0.1, {'verb_disp': 1, 'popsize': popsize})
+
     with mp.Pool(processes=n_cores) as pool:
         while not es.stop():
 

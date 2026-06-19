@@ -257,7 +257,7 @@ def get_distribution_similarity(speeds1, speeds2, nbins=101, doplots=False, huxt
         print(f'Plot saved to {'./plots/%s/hists_%05d.png' % (huxt_name, iteration)}')
         plt.close()
 
-    return distance
+    return distance, (hist1, hist2)
 
 def get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence=10, weighted_average = True, verbose=False, plot_averaging=False, target_times=None):
     """
