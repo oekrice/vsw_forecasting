@@ -31,6 +31,12 @@ else:
 
 nsamples = 50
 extend_current_run = True
+use_neural_net = True
+
+if not use_neural_net:
+    theta_size = 8
+else:
+    theta_size = 41
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -65,9 +71,16 @@ else:
 
 run_name = run_names[batch_id]
 
+if use_neural_net:
+    batch_name = f"optimise_run_net_{batch_id}"
+    velocity_type = "neural_net"
+else:
+    batch_name = f"optimise_run_{batch_id}"
+    velocity_type = "wsa"
+
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],
-                "run_name": "test_run_2",#f"optimise_run_{batch_id}",
+                "run_name": batch_name,
                 "model_type": model,
                 "calculate_base_model": False,
                 "overwrite_base_model": False,
@@ -79,7 +92,7 @@ test_parameters = {"observation_time": obs_times,
                 "resolutions": [120,180,360],
                 "r_hb": 21.5,
                 "match_flag": False,
-                "velocity_type": "wsa",
+                "velocity_type": velocity_type,
                 "spinup_time": 5,
                 "forecast_length": 5,
                 "verbose": False,
@@ -160,7 +173,7 @@ def run_cma_mp(n_cores=None):
         if os.path.exists(f'data/{test_parameters["run_name"]}/log.csv'):
             os.remove(f'data/{test_parameters["run_name"]}/log.csv')
 
-        es = cma.CMAEvolutionStrategy(np.zeros(8), 0.1, {'verb_disp': 1, 'popsize': popsize})
+        es = cma.CMAEvolutionStrategy(np.zeros(theta_size), 0.1, {'verb_disp': 1, 'popsize': popsize})
         best_losses = []
         sigmas = []
 
@@ -170,11 +183,15 @@ def run_cma_mp(n_cores=None):
             sigmas = list(sigmas)
             best_losses = list(scores)
             es = cma.CMAEvolutionStrategy(thetas[-1], sigmas[-1], {'verb_disp': 1, 'popsize': popsize})
-
+            print('Using existing run, initial conditions', thetas[-1], sigmas[-1])
         else:
             best_losses = []
             sigmas = []
-            es = cma.CMAEvolutionStrategy(np.zeros(8), 0.1, {'verb_disp': 1, 'popsize': popsize})
+            es = cma.CMAEvolutionStrategy(np.zeros(theta_size), 0.1, {'verb_disp': 1, 'popsize': popsize})
+
+    valid_snaps = np.arange(5478)
+    random.shuffle(valid_snaps)
+    snap_subset = valid_snaps[:nsamples]
 
     with mp.Pool(processes=n_cores) as pool:
         while not es.stop():
@@ -239,6 +256,6 @@ else:
     random.shuffle(valid_snaps)
     snap_subset = valid_snaps[:nsamples]
 
-    skillscore = evaluate_theta(np.zeros(8), snap_subset=snap_subset)
+    skillscore = evaluate_theta(np.zeros(theta_size), snap_subset=snap_subset)
     print('Current skillscore', skillscore)
 

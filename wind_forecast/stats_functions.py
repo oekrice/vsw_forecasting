@@ -15,7 +15,7 @@ class VelocityNet():
     """
 
 
-    def __init__(self, n_nodes=10, n_inputs=2, max_velocity=1000, min_velocity=0):
+    def __init__(self, n_nodes=10, n_inputs=2, max_velocity=2000, min_velocity=0):
         #Generate arraysfor the weights and things. Then broadcast to these arrays so the dimensions don't get mixed up...
         self.n_nodes = n_nodes
         self.n_inputs = n_inputs
@@ -65,7 +65,7 @@ class VelocityNet():
         for n in range(self.n_nodes):
             node_activations[n] += np.sum(self.weights_in[:,n, np.newaxis, np.newaxis]*inputs[:], axis=0) + self.biases_in[n]
         node_activations = np.clip(node_activations, a_min = 1e-3, a_max = 1e3)  #Stop over and underflow in the exponentials
-        node_activations = self.sigmoid(node_activations)
+        node_activations = 2*self.sigmoid(node_activations) - 1  #This one is tanh now, because that worked well with bells
         output = np.sum(node_activations*self.weights_out[:,np.newaxis,np.newaxis], axis=0) + self.biases_out
         output = self.sigmoid(output)
 
@@ -213,7 +213,6 @@ class VelocityNet():
         self.biases_out[:] = self.parameter_set[self.n_inputs*self.n_nodes+self.n_nodes*2:self.n_inputs*self.n_nodes+self.n_nodes*2+1]
 
         return
-
 
 def get_wasserstein_distance(speeds1, speeds2, nbins=101, doplots=False, huxt_name=None, iteration=0):
     """

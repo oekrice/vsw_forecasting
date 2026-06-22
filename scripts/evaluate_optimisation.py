@@ -23,8 +23,8 @@ start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
 n_cores = 8
 
-plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
-plot_continuous = True   #Will wait for outputs and keep up (if possible)
+plot_specific = 1351   #Just evalulate a specific snap. Set to -1 for the latest one
+plot_continuous = False   #Will wait for outputs and keep up (if possible)
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -38,9 +38,7 @@ if len(sys.argv) > 1:
 else:
     raise Exception('Specify batch number.')
 
-
-
-
+use_neural_net = True
 
 #Get the model setup depending on the batch numbers
 if (batch_id//2)%2 == 0:
@@ -59,9 +57,16 @@ else:
     source = "hmi"
 run_name = run_names[batch_id]
 
+if use_neural_net:
+    batch_name = f"optimise_run_net_{batch_id}"
+    velocity_type = "neural_net"
+else:
+    batch_name = f"optimise_run_{batch_id}"
+    velocity_type = "wsa"
+
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],
-                "run_name": f"optimise_run_{batch_id}",
+                "run_name": batch_name,
                 "model_type": model,
                 "calculate_base_model": False,
                 "overwrite_base_model": False,
@@ -73,7 +78,7 @@ test_parameters = {"observation_time": obs_times,
                 "resolutions": [120,180,360],
                 "r_hb": 21.5,
                 "match_flag": False,
-                "velocity_type": "wsa",
+                "velocity_type": velocity_type,
                 "spinup_time": 5,
                 "forecast_length": 5,
                 "verbose": True,

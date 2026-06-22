@@ -109,11 +109,20 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
                 else:
                     vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
             else:
-                print('Using default WSA parameters')
+                if run_parameters["verbose"]:
+                    print('Using default WSA parameters')
                 if si == 0:
                     vr = fcast.compute_vr(snap_id, run_name, method="wsa", params = None, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
                 else:
                     vr = fcast.compute_vr(snap_id, run_name, method="wsa", params = None, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+        elif run_parameters["velocity_type"] == "neural_net":
+            if run_parameters["verbose"]:
+                print('Using neural net parameters', theta)
+            if si == 0:
+                vr = fcast.compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+            else:
+                vr = fcast.compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+
         else:
             raise Exception("Velocity calculation type not recognised...")
 

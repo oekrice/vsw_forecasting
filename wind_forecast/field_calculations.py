@@ -66,7 +66,6 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
     fs = fs.copy()
     chb = chd.copy()
 
-
     if method == "marion":
         # e.g. params=[200.0, 700.0, 7.0, 1/2.5]
         vslow = params[0]
@@ -126,8 +125,21 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         vfast = params[3]
         vr = vslow + 0.5*(vfast - vslow) * (1.0 + np.tanh((np.deg2rad(chb) - ep) / w))
 
+    if method == "neural_net":
+        Net = fcast.VelocityNet()
+        if params is None:
+            params = np.zeros((Net.nparas))
+        elif len(params) != Net.nparas:
+            raise Exception("Input theta doesn't match net size...")
+
+        Net.update_network(params)
+        vr = Net.velocity((chb, fs))
+        # print('Net nparas:', Net.nparas)
+        # print('Input nparas:', params)
+
     if doplot:
 
+        print('Doing plot. Here are the parameters:', method, params)
         if not os.path.exists('plots'):
             os.mkdir('plots')
         if not os.path.exists(f'plots/{huxt_name}'):
@@ -138,10 +150,16 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         chbs = np.linspace(0,5,100)
 
         fss, chbs = np.meshgrid(fss, chbs)
-        vmesh = (
-            vslow  + (vfast - vslow) * (((np.abs(b - g * np.exp(-(chbs / w) ** d))) ** i)/((1.0 + fss) ** a))
-        )
 
+        if not method == "neural_net":
+            vmesh = (
+                vslow  + (vfast - vslow) * (((np.abs(b - g * np.exp(-(chbs / w) ** d))) ** i)/((1.0 + fss) ** a))
+            )
+        else:
+            Net = fcast.VelocityNet()
+
+            Net.update_network(params)
+            vmesh = Net.velocity((chbs, fss))
 
         #Do a plot of the chbs, expansions, velocity map and resulting pattern
         fig, axs = plt.subplots(2,2, figsize = (10,7))

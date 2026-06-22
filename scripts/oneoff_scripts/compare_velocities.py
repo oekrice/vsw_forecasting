@@ -26,6 +26,7 @@ plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest o
 plot_continuous = True   #Will wait for outputs and keep up (if possible)
 find_min_sigma = True
 
+use_neural_net = True
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
 #Let's specify literally everything here, all the parameters which can happen.
@@ -35,7 +36,7 @@ run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
-for plot_num, batch_id in enumerate(np.arange(8)):
+for plot_num, batch_id in enumerate(np.arange(7,8)):
 
 
     #Get the model setup depending on the batch numbers
@@ -55,10 +56,19 @@ for plot_num, batch_id in enumerate(np.arange(8)):
         source = "hmi"
     run_name = run_names[batch_id]
 
+
+    if use_neural_net:
+        batch_name = f"optimise_run_net_{batch_id}"
+        velocity_type = "neural_net"
+    else:
+        batch_name = f"optimise_run_{batch_id}"
+        velocity_type = "wsa"
+
+
     nicetitle = f"{model}, rss = {rss}, source = {source}"
     test_parameters = {"observation_time": obs_times,
                     "base_name": run_names[batch_id],
-                    "run_name": f"optimise_run_{batch_id}",
+                    "run_name": batch_name,
                     "model_type": model,
                     "calculate_base_model": False,
                     "overwrite_base_model": False,
@@ -70,7 +80,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
                     "resolutions": [120,180,360],
                     "r_hb": 21.5,
                     "match_flag": False,
-                    "velocity_type": "wsa",
+                    "velocity_type": velocity_type,
                     "spinup_time": 5,
                     "forecast_length": 5,
                     "verbose": True,
@@ -130,6 +140,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
     else:
         theta = thetas[-1]
 
+
     nthetas = np.shape(thetas)[0]
 
     if plot_specific < 0:
@@ -138,8 +149,8 @@ for plot_num, batch_id in enumerate(np.arange(8)):
         i = plot_specific
 
     iteration = 0
-    print('Current theta', thetas[i])
-    _, cmaps = fcast.compute_vr(0, run_name, method="wsa_scaled", params = theta, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
+    print('Current theta', theta)
+    _, cmaps = fcast.compute_vr(0, run_name, method=test_parameters["velocity_type"], params = theta, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
 
     vmesh, vr = cmaps
 
@@ -152,7 +163,10 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
 plt.suptitle('Optimised WSA model')
 plt.tight_layout()
-plt.savefig('./plots/velocities_optimised_wsa.png')
+if use_neural_net:
+    plt.savefig('./plots/velocities_optimised_wsa_net.png')
+else:
+    plt.savefig('./plots/velocities_optimised_wsa.png')
 plt.close()
 
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))

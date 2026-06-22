@@ -40,7 +40,7 @@ test_parameters = {"observation_time": obs_times,
                   "resolutions": [120,180,360],
                   "r_hb": 21.5,
                   "match_flag": True,
-                  "velocity_type": "wsa",
+                  "velocity_type": "neural_net",
                   "spinup_time": 5,
                   "forecast_length": 5,
                   "verbose": True,
@@ -50,7 +50,7 @@ test_parameters = {"observation_time": obs_times,
 nsamples = 10
 valid_snaps = np.arange(5478)
 random.shuffle(valid_snaps)
-fcast.run_model(test_parameters, snap_subset = valid_snaps[:nsamples])
+fcast.run_model(test_parameters, snap_subset = valid_snaps[:nsamples], theta=)
 
 
 

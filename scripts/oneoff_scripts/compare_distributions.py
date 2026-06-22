@@ -26,6 +26,7 @@ n_cores = 8
 plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
 plot_continuous = True   #Will wait for outputs and keep up (if possible)
 find_min_sigma = True
+use_neural_net = True
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -41,7 +42,7 @@ snap_subset = np.array([0] + list(valid_snaps[:nsamples-1]))
 
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
-for plot_num, batch_id in enumerate(np.arange(8)):
+for plot_num, batch_id in enumerate(np.arange(7,8)):
 
     #Get the model setup depending on the batch numbers
     if (batch_id//2)%2 == 0:
@@ -62,9 +63,17 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     nicetitle = f"{model}, rss = {rss}, source = {source}"
 
+    if use_neural_net:
+        batch_name = f"optimise_run_net_{batch_id}"
+        velocity_type = "neural_net"
+    else:
+        batch_name = f"optimise_run_{batch_id}"
+        velocity_type = "wsa"
+
+    nicetitle = f"{model}, rss = {rss}, source = {source}"
     test_parameters = {"observation_time": obs_times,
                     "base_name": run_names[batch_id],
-                    "run_name": f"optimise_run_{batch_id}",
+                    "run_name": batch_name,
                     "model_type": model,
                     "calculate_base_model": False,
                     "overwrite_base_model": False,
@@ -76,7 +85,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
                     "resolutions": [120,180,360],
                     "r_hb": 21.5,
                     "match_flag": False,
-                    "velocity_type": "wsa",
+                    "velocity_type": velocity_type,
                     "spinup_time": 5,
                     "forecast_length": 5,
                     "verbose": True,
@@ -155,7 +164,11 @@ for plot_num, batch_id in enumerate(np.arange(8)):
     ax.set_title(nicetitle)
 
     plt.tight_layout()
-    plt.savefig('./plots/distributions_optimised_wsa.png')
+
+    if use_neural_net:
+        plt.savefig('./plots/distributions_optimised_net.png')
+    else:
+        plt.savefig('./plots/distributions_optimised_wsa.png')
 
 print('Not doing the default ones, as it should already be done...')
 sys.exit()
