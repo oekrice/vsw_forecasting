@@ -9,7 +9,7 @@ import csv
 import multiprocessing as mp
 from datetime import datetime, timedelta
 
-import wind_forecast as fcast  #This should now contain everything we need...
+import wind_forecast as wf  #This should now contain everything we need...
 from dtaidistance import dtw
 import random
 
@@ -119,7 +119,7 @@ def evaluate_theta(theta, snap_subset):
     Will carry on even if there are errors.
     """
 
-    skillscores = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset)
+    skillscores = wf.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset)
 
     minimiser = np.mean(skillscores)
 

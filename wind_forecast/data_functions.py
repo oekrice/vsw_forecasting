@@ -7,13 +7,6 @@ import numpy as np
 from scipy.io import netcdf_file
 import astropy.units as u
 
-this_directory = os.getcwd() + "/"
-sys.path.append(this_directory+'/viz/HUXt-master/code')
-import huxt_inputs as Hin
-import huxt as H
-import huxt_analysis as HA
-
-import wind_forecast as fcast
 import csv
 
 def get_PFSS_maps_local(br_map, vr_map, phi, cotheta):

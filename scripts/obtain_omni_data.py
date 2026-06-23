@@ -12,13 +12,7 @@ from datetime import datetime, timedelta
 t1 = time.time()
 
 print('Import 1 time', t1-t0)
-import wind_forecast as fcast
-this_directory = os.getcwd() + "/"
-sys.path.append(this_directory+'/viz/HUXt-master/code')
 
-import huxt_inputs as Hin
-import huxt as H
-import huxt_analysis as HA
 t2 = time.time()
 print('Import 2 time', t2-t1)
 #Just a script to download OMNI measurements and save them in a reasonable format.

@@ -1,5 +1,3 @@
-
-
 import os
 import numpy as np
 from scipy.io import netcdf_file, FortranFile
@@ -7,33 +5,21 @@ import sys
 import matplotlib.pyplot as plt
 import datetime
 from datetime import timedelta
-import outflowpy
-import sunpy
-from scipy.interpolate import interp1d
 import astropy.units as u
 from sunpy.coordinates.sun import B0
 
-this_directory = os.getcwd() + "/"
-sys.path.append(this_directory +"prepare")
-
-import pfss
-import data_gong
-import output_netcdf
 import copy
-
-sys.path.append(this_directory+"viz/tools")
-import utils
-import wind
-sys.path.append(this_directory+'/viz/HUXt-master/code')
-import huxt_inputs as Hin
-import huxt as H
-import huxt_analysis as HA
 
 from astropy.time import Time
 
-import wind_forecast as fcast
 import astropy.units as u
 import csv
+
+from .data_functions import load_chb_distances, get_PFSS_maps_local
+from .viz.huxt.code import huxt_inputs as Hin
+from .viz.huxt.code import huxt as H
+from .viz.huxt.code import huxt_analysis as HA
+from .prepare import pfss, data_gong, output_netcdf
 
 def get_cme_fname(src_folder, tmatch):
     """
@@ -57,7 +43,7 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         ary -- 2019/09/13
     """
 
-    s0, ph0, br0, fs, chd = fcast.load_chb_distances(run_name, snap_id)
+    s0, ph0, br0, fs, chd = load_chb_distances(run_name, snap_id)
     if params is None and method == "wsa_scaled":
         params = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     elif params is None and method == "wsa":
@@ -226,6 +212,9 @@ def calculate_outflow(snap_id, obs_time, output_directory=None, overwrite=False,
     snap_fname = path + '/' + output_directory + '/' + 'outflow_%09d.nc' % snap_id
 
     if not os.path.isfile(snap_fname) or overwrite:  #If file doesn't exist, do a thing
+        import sunpy
+        import outflowpy
+
         print('Computing Outflow model and wind speed at time', obs_time)
 
         dtime = obs_time
@@ -384,10 +373,10 @@ def get_vsw(snap_id, run_name, obs_time, vr_bnd, r_hb=21.5, fcast_length=5, dece
     For testing, set plot2d=True to run HUXt in 2d and plot result instead of returning.
     """
 
-    s0, ph0, br_bnd, fs, chd = fcast.load_chb_distances(run_name, snap_id)
+    s0, ph0, br_bnd, fs, chd = load_chb_distances(run_name, snap_id)
 
     # Latitude of Earth at simulation time:
-    _, vr_longs, vr_lats, br_map, br_longs, br_lats = fcast.get_PFSS_maps_local(br_bnd, vr_bnd, ph0, s0)
+    _, vr_longs, vr_lats, br_map, br_longs, br_lats = get_PFSS_maps_local(br_bnd, vr_bnd, ph0, s0)
     E_lat = np.deg2rad(B0(obs_time))
     iE_lat = np.argmin(abs(vr_lats - E_lat))
 
@@ -471,6 +460,8 @@ def expansionfactor(rm, r0, brm, br0):
     return fs
 
 def compute_coronal_hole_distances(snap_id, windmap_fname, batch_name, path='./', save_file=True):
+
+
     """
     This step should be included in the 'slow runs', as it requires no knowledge of the velocity maps.
     Should output an array of coronal hole distances, which can be saved and read-in quickly by the HuxT solver.

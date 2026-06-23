@@ -8,16 +8,12 @@ import numpy as np
 import datetime
 from scipy.io import netcdf_file
 
-this_directory = os.getcwd() + "/"
-sys.path.append(this_directory+"viz/tools")
-import wind
-import wind_forecast as fcast
-
-import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import csv
-from dtaidistance import dtw
-from scipy.ndimage import gaussian_filter
+
+from .data_functions import check_existing_data
+from .field_calculations import compute_vr, get_vsw
+from .stats_functions import get_average_speeds, get_distribution_similarity, get_wasserstein_distance
 
 def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, output_distributions=False, save_speeds=False):
     """
@@ -35,9 +31,9 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
 
     if run_parameters["base_name"] is not None:
         if "match_flag" in run_parameters:
-            data_lookup = fcast.check_existing_data(run_parameters, match_flag = run_parameters["match_flag"]) #Will eventually output flags as to whether these data have been already succesfully calculated with the given inputs.
+            data_lookup = check_existing_data(run_parameters, match_flag = run_parameters["match_flag"]) #Will eventually output flags as to whether these data have been already succesfully calculated with the given inputs.
         else:
-            data_lookup = fcast.check_existing_data(run_parameters, match_flag = True)
+            data_lookup = check_existing_data(run_parameters, match_flag = True)
     else:
         data_lookup = [0] * len(run_parameters["observation_time"])
 
@@ -105,24 +101,24 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
             #This is the polynomial expression
             if theta is not None:
                 if si == 0:
-                    vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                    vr = compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
                 else:
-                    vr = fcast.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+                    vr = compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
             else:
                 if run_parameters["verbose"]:
                     print('Using default WSA parameters')
                 if si == 0:
-                    vr = fcast.compute_vr(snap_id, run_name, method="wsa", params = None, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                    vr = compute_vr(snap_id, run_name, method="wsa", params = None, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
                 else:
-                    vr = fcast.compute_vr(snap_id, run_name, method="wsa", params = None, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+                    vr = compute_vr(snap_id, run_name, method="wsa", params = None, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
 
         elif run_parameters["velocity_type"] == "neural_net":
             if run_parameters["verbose"]:
                 print('Using neural net parameters', theta)
             if si == 0:
-                vr = fcast.compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                vr = compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
             else:
-                vr = fcast.compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+                vr = compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
 
         else:
             raise Exception("Velocity calculation type not recognised...")
@@ -131,14 +127,16 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
             print('Calculating VSW with HuxT...')
 
         #Using this velocity map (and nothing else?), run HuxT
-        times, model_speeds, _ = fcast.get_vsw(snap_id, run_parameters["base_name"], obs_time, vr, spinup_cme_days=run_parameters["spinup_time"], fcast_length=run_parameters["forecast_length"])
-        omni_times, omni_speeds = fcast.get_average_speeds([omni_dates], [omni_vs], spinup_time = 0, cadence = 24, target_times = times, verbose=run_parameters["verbose"])
+        times, model_speeds, _ = get_vsw(snap_id, run_parameters["base_name"], obs_time, vr, spinup_cme_days=run_parameters["spinup_time"], fcast_length=run_parameters["forecast_length"])
+        omni_times, omni_speeds = get_average_speeds([omni_dates], [omni_vs], spinup_time = 0, cadence = 24, target_times = times, verbose=run_parameters["verbose"])
 
         alltimes.append(times)
         allspeeds.append(model_speeds)
         allspeeds_ref.append(omni_speeds)
 
         if run_parameters["do_plots"] and si == 0:
+            import matplotlib.pyplot as plt
+
             if not os.path.exists('plots'):
                 os.mkdir('plots')
             if not os.path.exists(f'plots/{run_parameters["run_name"]}'):
@@ -154,6 +152,8 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
             plt.close()
 
     if run_parameters["optimisation_type"] == "dtw":
+        from dtaidistance import dtw
+
         #For DTW, need to compare each set individually, which I concede is a bit of a pain.
         for si in range(len(allspeeds)):
             omni_speeds = allspeeds_ref[si]
@@ -183,12 +183,12 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
     elif run_parameters["optimisation_type"] == "wasserstein":
         speeds = np.concatenate(allspeeds)
         speeds_ref = np.concatenate(allspeeds_ref)
-        wasserstein_distance = fcast.get_wasserstein_distance(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
+        wasserstein_distance = get_wasserstein_distance(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
         skillscores.append(wasserstein_distance)
     elif run_parameters["optimisation_type"] == "distribution":
         speeds = np.concatenate(allspeeds)
         speeds_ref = np.concatenate(allspeeds_ref)
-        distribution_similarity, dists = fcast.get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
+        distribution_similarity, dists = get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
         skillscores.append(distribution_similarity)
     else:
         raise Exception('Optimisation type not recognised')
@@ -202,6 +202,7 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
         return np.mean(skillscores), dists
 
 def do_model_statistics(run_name, compare_to_persist=True):
+    import matplotlib.pyplot as plt
 
 
     mean_times = np.loadtxt('./data/' + run_name + '/times.txt', dtype='datetime64[s]', delimiter = ',')
