@@ -1478,8 +1478,8 @@ def _setup_dirs_():
     # Get path of huxt.py
     cwd = os.path.abspath(os.path.dirname(__file__))
 
-    dirs = {'ephemeris': os.path.join(cwd, 'data', 'ephemeris', 'ephemeris.hdf5'),
-            'example_inputs': os.path.join(cwd, 'data', 'example_inputs')}
+    dirs = {'ephemeris': os.path.join(cwd, 'data', 'ephemeris', 'ephemeris.hdf5')}#
+            #'example_inputs': os.path.join(cwd, 'data', 'example_inputs')}
 
     bc_dir = Path(user_data_dir(appname='huxt', appauthor=False), "data", 'boundary_conditions')
     bc_dir.mkdir(parents=True, exist_ok=True)

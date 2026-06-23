@@ -20,7 +20,7 @@ matplotlib.use('Agg')
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
-test_single =  False
+test_single =  True
 
 if "SLURM_JOB_ID" in os.environ:
     n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
@@ -29,7 +29,7 @@ else:
     print('Running locally (not on slurm)')
     n_cores = 8
 
-nsamples = 50
+nsamples = 2
 extend_current_run = True
 use_neural_net = False
 
@@ -259,7 +259,7 @@ if not test_single:
 
 else:
     valid_snaps = np.arange(len(obs_times))#[1-cme_mask]
-
+    filter_for_cmes = True
     if filter_for_cmes:
         cme_mask = wf.data_functions.get_cme_times(obs_times)
         valid_times = np.where(cme_mask == 0)[0]
