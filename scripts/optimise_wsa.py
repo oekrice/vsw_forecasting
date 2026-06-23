@@ -27,7 +27,7 @@ if "SLURM_JOB_ID" in os.environ:
     print('Number of slurm-allocated cores:', n_cores)
 else:
     print('Running locally (not on slurm)')
-    n_cores = 1
+    n_cores = 8
 
 nsamples = 50
 extend_current_run = True
@@ -75,12 +75,12 @@ if use_neural_net:
     batch_name = f"optimise_run_net_{batch_id}"
     velocity_type = "neural_net"
 else:
-    batch_name = f"optimise_run_{batch_id}"
+    batch_name = f"wsa_nocmes_{batch_id}"
     velocity_type = "wsa_scaled"
 
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],
-                "run_name": "test_cme_filter",#batch_name,
+                "run_name": batch_name,
                 "model_type": model,
                 "calculate_base_model": False,
                 "overwrite_base_model": False,
@@ -237,7 +237,7 @@ def run_cma_mp(n_cores=None):
             best_losses.append(best_loss)
             sigmas.append(es.sigma)
 
-            fcast.update_theta_record(test_parameters, best_loss, es.sigma, best_theta)  #This keeps a record of which thetas are good, and the sigma at that time.
+            wf.data_functions.update_theta_record(test_parameters, best_loss, es.sigma, best_theta)  #This keeps a record of which thetas are good, and the sigma at that time.
 
             if not os.path.exists('plots'):
                 os.mkdir('plots')
