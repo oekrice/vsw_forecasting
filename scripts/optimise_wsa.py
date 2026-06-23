@@ -20,18 +20,19 @@ matplotlib.use('Agg')
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
-test_single =  False
+test_single =  True
 
+print(obs_times[-1])
 if "SLURM_JOB_ID" in os.environ:
     n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
     print('Number of slurm-allocated cores:', n_cores)
 else:
     print('Running locally (not on slurm)')
-    n_cores = 8
+    n_cores = 1
 
-nsamples = 50
+nsamples = 2# 50
 extend_current_run = True
-use_neural_net = True
+use_neural_net = False
 
 if not use_neural_net:
     theta_size = 8
@@ -80,7 +81,7 @@ else:
 
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],
-                "run_name": batch_name,
+                "run_name": "test_cme_filter",#batch_name,
                 "model_type": model,
                 "calculate_base_model": False,
                 "overwrite_base_model": False,
@@ -95,7 +96,7 @@ test_parameters = {"observation_time": obs_times,
                 "velocity_type": velocity_type,
                 "spinup_time": 5,
                 "forecast_length": 5,
-                "verbose": False,
+                "verbose": True,
                 "optimisation_type": "distribution",
                 "do_plots": False}
 

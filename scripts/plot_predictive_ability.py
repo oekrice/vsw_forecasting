@@ -15,7 +15,7 @@ else:
 
 if plot_type == -1 or plot_type == 0: #Do timeseries and print out RMS values. Alas these appear to be consistently worse once optimised. Bugger.
     batch_names = []
-    for i in range(7):
+    for i in range(8):
         batch_names.append(f'optimise_run_{i}')
 
     fig = plt.figure(figsize=(12,6))
@@ -86,7 +86,7 @@ if plot_type == -1 or plot_type == 2: #Do 'persistence metric' or equivalent, fo
     run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
     batch_names = []
-    for i in range(7):
+    for i in range(8):
         batch_names.append(f'optimise_run_{i}')
     fig = plt.figure(figsize=(12,6))
 

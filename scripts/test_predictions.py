@@ -35,9 +35,9 @@ use_neural_net = False
 #Can specify file name to look up WSA parameters? Yeah, probably.
 run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
-snap_subset = np.arange(365) #This should just start from the start now
+snap_subset = np.arange(len(obs_times)) #This should just start from the start now
 
-for plot_num, batch_id in enumerate(np.arange(7,8)):
+for plot_num, batch_id in enumerate(np.arange(0,0)):
 
     #Get the model setup depending on the batch numbers
     if (batch_id//2)%2 == 0:
