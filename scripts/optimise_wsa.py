@@ -20,9 +20,8 @@ matplotlib.use('Agg')
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
-test_single =  True
+test_single =  False
 
-print(obs_times[-1])
 if "SLURM_JOB_ID" in os.environ:
     n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
     print('Number of slurm-allocated cores:', n_cores)
@@ -30,7 +29,7 @@ else:
     print('Running locally (not on slurm)')
     n_cores = 1
 
-nsamples = 2# 50
+nsamples = 50
 extend_current_run = True
 use_neural_net = False
 
@@ -96,9 +95,10 @@ test_parameters = {"observation_time": obs_times,
                 "velocity_type": velocity_type,
                 "spinup_time": 5,
                 "forecast_length": 5,
-                "verbose": True,
+                "verbose": False,
                 "optimisation_type": "distribution",
-                "do_plots": False}
+                "do_plots": False,
+                "filter_cmes": True}
 
 if not os.path.exists(f"./data/{test_parameters['run_name']}"):
     os.mkdir(f"./data/{test_parameters['run_name']}")
@@ -190,17 +190,22 @@ def run_cma_mp(n_cores=None):
             sigmas = []
             es = cma.CMAEvolutionStrategy(np.zeros(theta_size), 0.1, {'verb_disp': 1, 'popsize': popsize})
 
-    valid_snaps = np.arange(5478)
+    valid_snaps = np.arange(len(obs_times))#[1-cme_mask]
+
+    if test_parameters["filter_cmes"]:
+        cme_mask = wf.data_functions.get_cme_times(obs_times)
+        valid_times = np.where(cme_mask == 0)[0]
+        valid_snaps = valid_snaps[valid_times]
     random.shuffle(valid_snaps)
-    snap_subset = valid_snaps[:nsamples]
+
+    snap_subset = valid_snaps[:nsamples].copy()
 
     with mp.Pool(processes=n_cores) as pool:
         while not es.stop():
 
-            valid_snaps = np.arange(5478)
             if (len(sigmas)%50) == 0:
                 random.shuffle(valid_snaps)
-                snap_subset = valid_snaps[:nsamples]
+                snap_subset = valid_snaps[:nsamples].copy()
 
             solutions = es.ask()
 
@@ -253,7 +258,13 @@ if not test_single:
         run_cma_mp(n_cores=n_cores)
 
 else:
-    valid_snaps = np.arange(5478)
+    valid_snaps = np.arange(len(obs_times))#[1-cme_mask]
+
+    if filter_for_cmes:
+        cme_mask = wf.data_functions.get_cme_times(obs_times)
+        valid_times = np.where(cme_mask == 0)[0]
+        valid_snaps = valid_snaps[valid_times]
+
     random.shuffle(valid_snaps)
     snap_subset = valid_snaps[:nsamples]
 

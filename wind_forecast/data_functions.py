@@ -1,6 +1,6 @@
 #This module is to contain all the functions pertaining to obtaining or wrangling the raw data
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import os, sys
 import drms
 import numpy as np
@@ -21,6 +21,51 @@ def get_PFSS_maps_local(br_map, vr_map, phi, cotheta):
     br_longs = vr_longs
 
     return vr_map, vr_longs, vr_lats, br_map, br_longs, br_lats
+
+def get_cme_times(obs_times, cme_fname='./data/shared_data/cme_list.csv', cme_time_window_days=5):
+    """
+    Given a set of valid snap times, determine whether these correspond to CME arrivals (up to the 5 day bodge period).
+    This is more complicated than it seems!
+    Don't use the precomputed OMNI file as this is quick enough just to do again. Produces a mask for the allowable subset of times to sample for an optimisation.
+    """
+    print('Filtering for CMEs')
+    if os.path.exists(cme_fname):
+        cme_data = []
+        with open(cme_fname, "r", encoding="utf-8") as f:
+            data = csv.reader(f)
+            for row in data:
+                try:
+                    cme_data.append([datetime.strptime(row[1], "%Y/%m/%d %H%M"), datetime.strptime(row[2], "%Y/%m/%d %H%M")])
+                except:
+                    pass
+                #cme_data.append([row[1],row[2]])
+    else:
+        raise Exception('CME List not found')
+
+    #This is just a list of the start and end times of each CME.
+    cme_data = np.array(cme_data)
+    min_i = 0
+    cme_flags = np.zeros(len(obs_times))
+
+    #Logs the times of the CMES
+    for ci in range(len(cme_data)):
+        cme_start = cme_data[ci][0] - timedelta(days=cme_time_window_days)
+        cme_end = cme_data[ci][1] + timedelta(days=cme_time_window_days)
+        iscme = 0
+        i = min_i
+        go = True
+        while go and i < len(obs_times):
+            if cme_start < obs_times[i] and cme_end > obs_times[i]:
+                cme_flags[i] = 1
+                if iscme == 0:
+                    min_i = i
+                iscme = 1
+            if obs_times[i] > cme_end:
+                break
+            i += 1
+
+    return np.array(cme_flags).astype('int')
+
 
 def load_chb_distances(run_name, snap_id):
     """
