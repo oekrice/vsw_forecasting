@@ -399,7 +399,6 @@ def do_met_stats(times_omni, model_speeds, reference_speeds, compare_to_persist=
         vs_persist[persistence_int:] = vs_persist[:-persistence_int]
         vs_persist[:persistence_int] = np.nan
 
-
     "#The persistence forecast is meaningless for the first month anyway, so just don't calculate these ones"
 
     threshold_scores = np.zeros(len(thresholds))

@@ -76,7 +76,7 @@ if use_neural_net:
     velocity_type = "neural_net"
 else:
     batch_name = f"optimise_run_{batch_id}"
-    velocity_type = "wsa"
+    velocity_type = "wsa_scaled"
 
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],

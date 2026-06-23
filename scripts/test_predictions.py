@@ -15,7 +15,7 @@ import random
 import time
 
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 #This script should just run the base model and HuxT, at a low resolution.
 #Will automatically create a run ID with parameters encoded into the outputs, one hopes.
 
@@ -26,7 +26,7 @@ n_cores = 8
 plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
 plot_continuous = True   #Will wait for outputs and keep up (if possible)
 find_min_sigma = True
-use_neural_net = True
+use_neural_net = False
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -35,12 +35,7 @@ use_neural_net = True
 #Can specify file name to look up WSA parameters? Yeah, probably.
 run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
-nsamples = 250
-valid_snaps = np.arange(5478)
-random.shuffle(valid_snaps)
-snap_subset = np.array([0] + list(valid_snaps[:nsamples-1]))
-
-fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
+snap_subset = np.arange(365) #This should just start from the start now
 
 for plot_num, batch_id in enumerate(np.arange(7,8)):
 
@@ -89,7 +84,7 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
                     "spinup_time": 5,
                     "forecast_length": 5,
                     "verbose": True,
-                    "optimisation_type": "distribution",
+                    "optimisation_type": "least_squares",
                     "do_plots": True}
 
     if not os.path.exists(f"./data/{test_parameters['run_name']}"):
@@ -98,8 +93,8 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
     if not os.path.exists(f"./plots/{test_parameters['run_name']}"):
         os.mkdir(f"./plots/{test_parameters['run_name']}")
 
-    print('Copying log file from Hamilton')
-    os.system(f"scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{test_parameters["run_name"]}/log.csv ./data/{test_parameters["run_name"]}/")
+    #print('Copying log file from Hamilton')
+    #os.system(f"scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{test_parameters["run_name"]}/log.csv ./data/{test_parameters["run_name"]}/")
 
     def evaluate_theta(theta, snap_subset, iteration):
         """
@@ -138,8 +133,6 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
 
         return scores, sigmas, thetas
 
-
-
     scores, sigmas, thetas = load_directory()
 
     if find_min_sigma:   #Use the parameters at the point at which the solution appears to have converged the best
@@ -152,30 +145,9 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
 
     iteration = 0
     print('Current theta', thetas[-1])
-    skillscores, dists = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
+    skillscores = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, save_speeds=True)
 
-    dist1, dist2 = dists
-
-    ax = axs1[plot_num//4, plot_num%4]
-    ax.plot(dist1)
-    ax.plot(dist2)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_title(nicetitle)
-
-    plt.tight_layout()
-
-    if use_neural_net:
-        plt.savefig('./plots/distributions_optimised_net.png')
-    else:
-        plt.savefig('./plots/distributions_optimised_wsa.png')
-
-print('Not doing the default ones, as it should already be done...')
-sys.exit()
-
-fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
-
-for plot_num, batch_id in enumerate(np.arange(8)):
+for plot_num, batch_id in enumerate(np.arange(0,8)):
 
     #Get the model setup depending on the batch numbers
     if (batch_id//2)%2 == 0:
@@ -214,7 +186,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
                     "spinup_time": 5,
                     "forecast_length": 5,
                     "verbose": True,
-                    "optimisation_type": "distribution",
+                    "optimisation_type": "least_squares",
                     "do_plots": True}
 
     if not os.path.exists(f"./data/{test_parameters['run_name']}"):
@@ -269,16 +241,4 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     iteration = 0
     print('Current theta', thetas[-1])
-    skillscores, dists = fcast.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
-
-    dist1, dist2 = dists
-
-    ax = axs1[plot_num//4, plot_num%4]
-    ax.plot(dist1)
-    ax.plot(dist2)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_title(nicetitle)
-
-    plt.tight_layout()
-    plt.savefig('./plots/distributions_default_wsa.png')
+    skillscores = fcast.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration, save_speeds=True)

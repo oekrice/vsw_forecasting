@@ -26,7 +26,7 @@ plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest o
 plot_continuous = True   #Will wait for outputs and keep up (if possible)
 find_min_sigma = True
 
-use_neural_net = True
+use_neural_net = False
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
 #Let's specify literally everything here, all the parameters which can happen.
@@ -36,7 +36,7 @@ run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
-for plot_num, batch_id in enumerate(np.arange(7,8)):
+for plot_num, batch_id in enumerate(np.arange(8)):
 
 
     #Get the model setup depending on the batch numbers
@@ -62,7 +62,7 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
         velocity_type = "neural_net"
     else:
         batch_name = f"optimise_run_{batch_id}"
-        velocity_type = "wsa"
+        velocity_type = "wsa_scaled"
 
 
     nicetitle = f"{model}, rss = {rss}, source = {source}"
@@ -154,7 +154,6 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
 
     vmesh, vr = cmaps
 
-    print(np.shape(vr))
     ax = axs1[plot_num//4, plot_num%4]
     ax.pcolormesh(vr[30:-30,:], vmax=1000)
     ax.set_xticks([])

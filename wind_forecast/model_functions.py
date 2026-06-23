@@ -19,7 +19,7 @@ import csv
 from dtaidistance import dtw
 from scipy.ndimage import gaussian_filter
 
-def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, output_distributions=False):
+def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, output_distributions=False, save_speeds=False):
     """
     Using the parameter disctionary, will run the base model AND HuxT. If a run_name is provided, will save out data as it goes.
     So many variations need to be tested here, but I think I can do it...
@@ -101,7 +101,7 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
         if run_parameters["verbose"]:
             print(f'Running HuXT forecast model at time {obs_time}')
 
-        if run_parameters["velocity_type"] == "wsa":
+        if run_parameters["velocity_type"] == "wsa" or run_parameters["velocity_type"] == "wsa_scaled" :
             #This is the polynomial expression
             if theta is not None:
                 if si == 0:
@@ -115,6 +115,7 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
                     vr = fcast.compute_vr(snap_id, run_name, method="wsa", params = None, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
                 else:
                     vr = fcast.compute_vr(snap_id, run_name, method="wsa", params = None, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+
         elif run_parameters["velocity_type"] == "neural_net":
             if run_parameters["verbose"]:
                 print('Using neural net parameters', theta)
@@ -160,8 +161,23 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
             dtw_distance = dtw.distance(omni_speeds, model_speeds)
             skillscores.append(dtw_distance)
     elif run_parameters["optimisation_type"] == "least_squares":
+
+        times_avg, speeds_avg = fcast.get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence = 24, verbose=True)
+        times_ref_avg, speeds_ref_avg = fcast.get_average_speeds(alltimes, allspeeds_ref, spinup_time = 0, cadence = 24, verbose=True)
+
+        if save_speeds:
+            if run_parameters["optimisation_type"] == "verbose":
+                print('Saving out raw speed data...')
+
+            #Save out the speeds to a normal txt file, so analysis on them is easy. Do need all the information though.
+            if not os.path.exists('./data/raw_speeds/'):
+                os.mkdir('./data/raw_speeds/')
+            np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds.txt', speeds_avg, delimiter = ',')
+            np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds_ref.txt', speeds_ref_avg, delimiter = ',')
+
         speeds = np.concatenate(allspeeds)
         speeds_ref = np.concatenate(allspeeds_ref)
+
         leastsquares_distance = np.sqrt(np.mean((speeds - speeds_ref)**2))
         skillscores.append(leastsquares_distance)
     elif run_parameters["optimisation_type"] == "wasserstein":
@@ -178,7 +194,7 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
         raise Exception('Optimisation type not recognised')
 
     if run_parameters["verbose"]:
-        print('Skillscore', skillscores)
+        print('Skillscore', skillscores[0])
 
     if not output_distributions:
         return np.mean(skillscores)

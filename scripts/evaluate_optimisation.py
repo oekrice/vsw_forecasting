@@ -23,7 +23,7 @@ start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
 n_cores = 8
 
-plot_specific = 1351   #Just evalulate a specific snap. Set to -1 for the latest one
+plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
 plot_continuous = False   #Will wait for outputs and keep up (if possible)
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
@@ -38,7 +38,7 @@ if len(sys.argv) > 1:
 else:
     raise Exception('Specify batch number.')
 
-use_neural_net = True
+use_neural_net = False
 
 #Get the model setup depending on the batch numbers
 if (batch_id//2)%2 == 0:
@@ -144,6 +144,9 @@ if not plot_continuous:
 
     scores, sigmas, thetas = load_directory()
 
+    #Find the location of the minimum sigma, and use that
+    theta = thetas[np.where(sigmas == np.min(sigmas))[0][0]]
+    print('Found the optimimum theta at index', np.where(sigmas == np.min(sigmas))[0][0])
     fig, axs = plt.subplots(2, figsize = (10,7))
     axs[0].plot(scores)
     axs[1].plot(sigmas)
@@ -153,12 +156,12 @@ if not plot_continuous:
     nthetas = np.shape(thetas)[0]
 
     if plot_specific < 0:
-        i = len(thetas) - 1
+        i = np.where(sigmas == np.min(sigmas))[0][0]
     else:
         i = plot_specific
 
-    print('Current theta', thetas[i])
-    skillscore = evaluate_theta(thetas[i], snap_subset=snap_subset, iteration=i)
+    print('Current theta', theta)
+    skillscore = evaluate_theta(theta, snap_subset=snap_subset, iteration=i)
     print('Current skillscore', skillscore)
 
 else:
