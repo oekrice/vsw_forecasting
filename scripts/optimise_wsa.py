@@ -20,7 +20,7 @@ matplotlib.use('Agg')
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
-test_single =  True
+test_single =  False
 
 if "SLURM_JOB_ID" in os.environ:
     n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
@@ -29,7 +29,7 @@ else:
     print('Running locally (not on slurm)')
     n_cores = 8
 
-nsamples = 2
+nsamples = 50
 extend_current_run = True
 use_neural_net = False
 

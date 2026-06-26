@@ -22,7 +22,7 @@ def get_PFSS_maps_local(br_map, vr_map, phi, cotheta):
 
     return vr_map, vr_longs, vr_lats, br_map, br_longs, br_lats
 
-def get_cme_times(obs_times, cme_fname='./data/shared_data/cme_list.csv', cme_time_window_days=5):
+def get_cme_times(obs_times, cme_fname='./data/shared_data/cme_list.csv', cme_time_window_days=5, also_filter_persistence=False, persistence_cadence=27.7):
     """
     Given a set of valid snap times, determine whether these correspond to CME arrivals (up to the 5 day bodge period).
     This is more complicated than it seems!
@@ -63,6 +63,29 @@ def get_cme_times(obs_times, cme_fname='./data/shared_data/cme_list.csv', cme_ti
             if obs_times[i] > cme_end:
                 break
             i += 1
+    if also_filter_persistence:
+        cme_persist_flags = np.zeros(len(obs_times))
+
+        min_i = 0
+
+        #Logs the times of the CMEs, offset by one solar rotation (into the future)
+        for ci in range(len(cme_data)):
+            cme_start = cme_data[ci][0] - timedelta(days=cme_time_window_days) + timedelta(days=persistence_cadence)
+            cme_end = cme_data[ci][1] + timedelta(days=cme_time_window_days) + timedelta(days=persistence_cadence)
+            iscme = 0
+            i = min_i
+            go = True
+            while go and i < len(obs_times):
+                if cme_start < obs_times[i] and cme_end > obs_times[i]:
+                    cme_persist_flags[i] = 1
+                    if iscme == 0:
+                        min_i = i
+                    iscme = 1
+                if obs_times[i] > cme_end:
+                    break
+                i += 1
+
+        cme_flags = np.maximum(cme_flags, cme_persist_flags)
 
     return np.array(cme_flags).astype('int')
 

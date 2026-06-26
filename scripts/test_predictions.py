@@ -1,4 +1,4 @@
-#This is a testbed for making the forecast scripts actually nice, and doing it all properly and things. HA, that went well!
+#This script is for taking an optimised distribution (or otherwise) and outputting (saving) a timeseries of the predicited velocities
 
 import os
 import sys
@@ -19,8 +19,15 @@ import matplotlib
 #This script should just run the base model and HuxT, at a low resolution.
 #Will automatically create a run ID with parameters encoded into the outputs, one hopes.
 
+if len(sys.argv) > 1:
+    batch_id = int(sys.argv[1])
+else:
+    raise Exception('Specify batch number.')
+
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
-obs_times = [start + timedelta(days=i) for i in range(5478)]
+#obs_times = [start + timedelta(days=i) for i in range(5478)]
+obs_times = [start + timedelta(days=i) for i in range(0, 5478)]
+
 n_cores = 8
 
 plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
@@ -37,7 +44,7 @@ run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
 snap_subset = np.arange(len(obs_times)) #This should just start from the start now
 
-for plot_num, batch_id in enumerate(np.arange(0,0)):
+for plot_num, batch_id in enumerate(np.arange(batch_id,batch_id+1)):
 
     #Get the model setup depending on the batch numbers
     if (batch_id//2)%2 == 0:
@@ -62,7 +69,7 @@ for plot_num, batch_id in enumerate(np.arange(0,0)):
         batch_name = f"optimise_run_net_{batch_id}"
         velocity_type = "neural_net"
     else:
-        batch_name = f"optimise_run_{batch_id}"
+        batch_name = f"wsa_nocmes_{batch_id}"
         velocity_type = "wsa_scaled"
 
     nicetitle = f"{model}, rss = {rss}, source = {source}"
@@ -136,18 +143,22 @@ for plot_num, batch_id in enumerate(np.arange(0,0)):
     scores, sigmas, thetas = load_directory()
 
     if find_min_sigma:   #Use the parameters at the point at which the solution appears to have converged the best
-        print('Min sigma location and overall length:', np.where(sigmas == np.min(sigmas))[0][0], len(sigmas))
-        theta = thetas[np.where(sigmas == np.min(sigmas))[0][0]]
+        cut = 60
+        cut = min(len(scores), cut - 1)
+        scores = scores[-cut:]
+        min_index = int(np.where(scores == np.min(scores))[0][0] + len(thetas) - cut)
+        print('Min sigma location and overall length:', min_index, len(thetas))
+        theta = thetas[min_index]
     else:
         theta = thetas[-1]
 
     nthetas = np.shape(thetas)[0]
 
     iteration = 0
-    print('Current theta', thetas[-1])
-    skillscores = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, save_speeds=True)
+    print('Current theta', theta)
+    skillscores = fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, save_speeds=True)
 
-for plot_num, batch_id in enumerate(np.arange(0,8)):
+for plot_num, batch_id in enumerate(np.arange(batch_id,batch_id+1)):
 
     #Get the model setup depending on the batch numbers
     if (batch_id//2)%2 == 0:
@@ -170,7 +181,7 @@ for plot_num, batch_id in enumerate(np.arange(0,8)):
 
     test_parameters = {"observation_time": obs_times,
                     "base_name": run_names[batch_id],
-                    "run_name": f"optimise_run_{batch_id}",
+                    "run_name": f"wsa_nocmes_{batch_id}",
                     "model_type": model,
                     "calculate_base_model": False,
                     "overwrite_base_model": False,
@@ -203,7 +214,7 @@ for plot_num, batch_id in enumerate(np.arange(0,8)):
         Will carry on even if there are errors.
         """
 
-        skillscores = fcast.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration)
+        skillscores = fcast.model_functions.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration)
 
         minimiser = np.mean(skillscores)
         return minimiser
@@ -240,5 +251,5 @@ for plot_num, batch_id in enumerate(np.arange(0,8)):
     nthetas = np.shape(thetas)[0]
 
     iteration = 0
-    print('Current theta', thetas[-1])
-    skillscores = fcast.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration, save_speeds=True)
+    print('Running the un-optimised WSA model')
+    skillscores = fcast.model_functions.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration, save_speeds=True)

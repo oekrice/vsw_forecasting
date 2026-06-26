@@ -13,9 +13,9 @@ import wind_forecast as fcast  #This should now contain everything we need...
 from dtaidistance import dtw
 import random
 import time
-
+from astropy.time import Time
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 #This script should just run the base model and HuxT, at a low resolution.
 #Will automatically create a run ID with parameters encoded into the outputs, one hopes.
 
@@ -26,7 +26,7 @@ n_cores = 8
 plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
 plot_continuous = True   #Will wait for outputs and keep up (if possible)
 find_min_sigma = True
-use_neural_net = True
+use_neural_net = False
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -36,13 +36,17 @@ use_neural_net = True
 run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
 nsamples = 250
-valid_snaps = np.arange(5478)
+valid_snaps = np.arange(len(obs_times))
 random.shuffle(valid_snaps)
 snap_subset = np.array([0] + list(valid_snaps[:nsamples-1]))
 
+cme_mask = fcast.data_functions.get_cme_times(obs_times)
+valid_times = np.where(cme_mask == 0)[0]
+valid_snaps = valid_snaps[valid_times]
+
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
-for plot_num, batch_id in enumerate(np.arange(7,8)):
+for plot_num, batch_id in enumerate(np.arange(0,8)):
 
     #Get the model setup depending on the batch numbers
     if (batch_id//2)%2 == 0:
@@ -67,7 +71,7 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
         batch_name = f"optimise_run_net_{batch_id}"
         velocity_type = "neural_net"
     else:
-        batch_name = f"optimise_run_{batch_id}"
+        batch_name = f"wsa_nocmes_{batch_id}"
         velocity_type = "wsa_scaled"
 
     nicetitle = f"{model}, rss = {rss}, source = {source}"
@@ -113,6 +117,7 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
 
     def load_directory():
         directory_fname = f'./data/{test_parameters["run_name"]}/log.csv'
+        print('Directory', directory_fname)
         if os.path.exists(directory_fname):
             #This directory already exists. Hopefully with proper header information etc
             directory_data = []
@@ -138,21 +143,27 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
 
         return scores, sigmas, thetas
 
-
-
-    scores, sigmas, thetas = load_directory()
+    try:
+        scores, sigmas, thetas = load_directory()
+    except:
+        print('Directory not found...')
+        continue
 
     if find_min_sigma:   #Use the parameters at the point at which the solution appears to have converged the best
-        print('Min sigma location and overall length:', np.where(sigmas == np.min(sigmas))[0][0], len(sigmas))
-        theta = thetas[np.where(sigmas == np.min(sigmas))[0][0]]
+        cut = 60
+        cut = min(len(scores), cut - 1)
+        scores = scores[-cut:]
+        min_index = int(np.where(scores == np.min(scores))[0][0] + len(thetas) - cut)
+        print('Min sigma location and overall length:', min_index, len(thetas))
+        theta = thetas[min_index]
     else:
         theta = thetas[-1]
 
     nthetas = np.shape(thetas)[0]
 
     iteration = 0
-    print('Current theta', thetas[-1])
-    skillscores, dists = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
+    print('Current theta', theta)
+    skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
 
     dist1, dist2 = dists
 
@@ -170,12 +181,12 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
     else:
         plt.savefig('./plots/distributions_optimised_wsa.png')
 
-print('Not doing the default ones, as it should already be done...')
-sys.exit()
+# print('Not doing the default ones, as it should already be done...')
+# sys.exit()
 
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
-for plot_num, batch_id in enumerate(np.arange(8)):
+for plot_num, batch_id in enumerate(np.arange(0,8)):
 
     #Get the model setup depending on the batch numbers
     if (batch_id//2)%2 == 0:
@@ -198,7 +209,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     test_parameters = {"observation_time": obs_times,
                     "base_name": run_names[batch_id],
-                    "run_name": f"optimise_run_{batch_id}",
+                    "run_name": f"wsa_nocmes_{batch_id}",
                     "model_type": model,
                     "calculate_base_model": False,
                     "overwrite_base_model": False,
@@ -231,7 +242,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
         Will carry on even if there are errors.
         """
 
-        skillscores = fcast.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration)
+        skillscores = fcast.model_functions.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration)
 
         minimiser = np.mean(skillscores)
         return minimiser
@@ -269,7 +280,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     iteration = 0
     print('Current theta', thetas[-1])
-    skillscores, dists = fcast.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
+    skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
 
     dist1, dist2 = dists
 

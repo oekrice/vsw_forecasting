@@ -162,19 +162,27 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
             skillscores.append(dtw_distance)
     elif run_parameters["optimisation_type"] == "least_squares":
 
-        times_avg, speeds_avg = fcast.get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence = 24, verbose=True)
-        times_ref_avg, speeds_ref_avg = fcast.get_average_speeds(alltimes, allspeeds_ref, spinup_time = 0, cadence = 24, verbose=True)
+        times_avg, speeds_avg = get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence = 24, verbose=True)
+        times_ref_avg, speeds_ref_avg = get_average_speeds(alltimes, allspeeds_ref, spinup_time = 0, cadence = 24, verbose=True)
 
         if save_speeds:
-            if run_parameters["optimisation_type"] == "verbose":
+            if run_parameters["verbose"] == True:
                 print('Saving out raw speed data...')
 
+            times_avg = np.array(times_avg, dtype='datetime64[s]')
+            times_ref_avg = np.array(times_ref_avg, dtype='datetime64[s]')
             #Save out the speeds to a normal txt file, so analysis on them is easy. Do need all the information though.
             if not os.path.exists('./data/raw_speeds/'):
                 os.mkdir('./data/raw_speeds/')
             np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds.txt', speeds_avg, delimiter = ',')
             np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds_ref.txt', speeds_ref_avg, delimiter = ',')
+            np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_times.txt', times_avg, fmt='%s', delimiter = ',')
+            np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_times_ref.txt', times_ref_avg, fmt='%s', delimiter = ',')
 
+            #print('Overall maximum speed (and ref):', np.max(allspeeds), np.max(allspeeds_ref))
+
+            if run_parameters["verbose"] == True:
+                print(f'Raw speed data saved with root {run_parameters["run_name"]}_{run_parameters["velocity_type"]}')
         speeds = np.concatenate(allspeeds)
         speeds_ref = np.concatenate(allspeeds_ref)
 
@@ -190,6 +198,7 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
         speeds_ref = np.concatenate(allspeeds_ref)
         distribution_similarity, dists = get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
         skillscores.append(distribution_similarity)
+        print('Overall maximum speed (and ref):', np.max(speeds), np.max(speeds_ref))
     else:
         raise Exception('Optimisation type not recognised')
 

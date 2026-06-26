@@ -23,7 +23,6 @@ obs_times = [start + timedelta(days=i) for i in range(5478)]
 n_cores = 8
 
 plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
-plot_continuous = True   #Will wait for outputs and keep up (if possible)
 find_min_sigma = True
 
 use_neural_net = False
@@ -61,7 +60,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
         batch_name = f"optimise_run_net_{batch_id}"
         velocity_type = "neural_net"
     else:
-        batch_name = f"optimise_run_{batch_id}"
+        batch_name = f"wsa_nocmes_{batch_id}"
         velocity_type = "wsa_scaled"
 
 
@@ -132,11 +131,20 @@ for plot_num, batch_id in enumerate(np.arange(8)):
     random.shuffle(valid_snaps)
     snap_subset = np.array([0] + list(valid_snaps[:nsamples-1]))
 
-    scores, sigmas, thetas = load_directory()
+    try:
+        scores, sigmas, thetas = load_directory()
+    except:
+        print('Directory not found...')
+        continue
+
 
     if find_min_sigma:   #Use the parameters at the point at which the solution appears to have converged the best
-        print('Min sigma location and overall length:', np.where(sigmas == np.min(sigmas))[0][0], len(sigmas))
-        theta = thetas[np.where(sigmas == np.min(sigmas))[0][0]]
+        cut = 60
+        cut = min(len(scores), cut - 1)
+        scores = scores[-cut:]
+        min_index = int(np.where(scores == np.min(scores))[0][0] + len(thetas) - cut)
+        print('Min sigma location and overall length:', min_index, len(thetas))
+        theta = thetas[min_index]
     else:
         theta = thetas[-1]
 
@@ -150,7 +158,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     iteration = 0
     print('Current theta', theta)
-    _, cmaps = fcast.compute_vr(0, run_name, method=test_parameters["velocity_type"], params = theta, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
+    _, cmaps = fcast.model_functions.compute_vr(0, run_name, method=test_parameters["velocity_type"], params = theta, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
 
     vmesh, vr = cmaps
 
@@ -267,7 +275,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     iteration = 0
     print('Current theta', thetas[i])
-    _, cmaps = fcast.compute_vr(0, run_name, method="wsa", params = None, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
+    _, cmaps = fcast.model_functions.compute_vr(0, run_name, method="wsa", params = None, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
 
     vmesh, vr = cmaps
 

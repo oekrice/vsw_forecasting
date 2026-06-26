@@ -61,8 +61,8 @@ if use_neural_net:
     batch_name = f"optimise_run_net_{batch_id}"
     velocity_type = "neural_net"
 else:
-    batch_name = f"optimise_run_{batch_id}"
-    velocity_type = "wsa"
+    batch_name = f"wsa_nocmes_{batch_id}"
+    velocity_type = "wsa_scaled"
 
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],
@@ -103,7 +103,7 @@ def evaluate_theta(theta, snap_subset, iteration):
     Will carry on even if there are errors.
     """
 
-    skillscores = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration)
+    skillscores = fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration)
 
     minimiser = np.mean(skillscores)
     return minimiser
@@ -145,8 +145,8 @@ if not plot_continuous:
     scores, sigmas, thetas = load_directory()
 
     #Find the location of the minimum sigma, and use that
-    theta = thetas[np.where(sigmas == np.min(sigmas))[0][0]]
-    print('Found the optimimum theta at index', np.where(sigmas == np.min(sigmas))[0][0])
+    theta = thetas[np.where(scores == np.min(scores))[0][0]]
+    print('Found the optimimum theta at index', np.where(scores == np.min(scores))[0][0], 'of', len(scores))
     fig, axs = plt.subplots(2, figsize = (10,7))
     axs[0].plot(scores)
     axs[1].plot(sigmas)
@@ -156,7 +156,7 @@ if not plot_continuous:
     nthetas = np.shape(thetas)[0]
 
     if plot_specific < 0:
-        i = np.where(sigmas == np.min(sigmas))[0][0]
+        i = np.where(scores == np.min(scores))[0][0]
     else:
         i = plot_specific
 
