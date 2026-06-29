@@ -75,7 +75,7 @@ if use_neural_net:
     batch_name = f"optimise_run_net_{batch_id}"
     velocity_type = "neural_net"
 else:
-    batch_name = f"wsa_nocmes_{batch_id}"
+    batch_name = f"rms_nocmes_{batch_id}"
     velocity_type = "wsa_scaled"
 
 test_parameters = {"observation_time": obs_times,
@@ -84,7 +84,7 @@ test_parameters = {"observation_time": obs_times,
                 "model_type": model,
                 "calculate_base_model": False,
                 "overwrite_base_model": False,
-                "calculate_huxt": False,
+                "calculate_huxt": True,
                 "r_ss": rss,
                 "WSA_type": "standard",
                 "WSA_parameters": None,
@@ -96,7 +96,7 @@ test_parameters = {"observation_time": obs_times,
                 "spinup_time": 5,
                 "forecast_length": 5,
                 "verbose": False,
-                "optimisation_type": "distribution",
+                "optimisation_type": "least_squares",
                 "do_plots": False,
                 "filter_cmes": True}
 
@@ -203,7 +203,7 @@ def run_cma_mp(n_cores=None):
     with mp.Pool(processes=n_cores) as pool:
         while not es.stop():
 
-            if (len(sigmas)%50) == 0:
+            if (len(sigmas)%25) == 0:  #I've not really tested whether this makes any meaningful difference...
                 random.shuffle(valid_snaps)
                 snap_subset = valid_snaps[:nsamples].copy()
 
