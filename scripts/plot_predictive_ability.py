@@ -27,22 +27,43 @@ def scale_function(m, c, series):
 
 unoptimised_scales = []
 optimised_scales = []
-for i in range(8):
-    opt_title = 'raw'
-    batch_name = f'wsa_nocmes_{i}'
-    if os.path.exists(f'./data/scaling_data/{batch_name}_{opt_title}.txt'):
-        scale_data = np.loadtxt(f'./data/scaling_data/{batch_name}_{opt_title}.txt')
-        unoptimised_scales.append(scale_data[1:])
-    else:
-        unoptimised_scales.append(None)
 
-    opt_title = 'dist'
+do_ss_scaling = True
+if not do_ss_scaling:  #Do linear scaling based on rms, not skillscore
+    for i in range(8):
+        opt_title = 'raw'
+        batch_name = f'wsa_nocmes_{i}'
+        if os.path.exists(f'./data/scaling_data/{batch_name}_{opt_title}_rms.txt'):
+            scale_data = np.loadtxt(f'./data/scaling_data/{batch_name}_{opt_title}_rms.txt')
+            unoptimised_scales.append(scale_data[1:])
+        else:
+            unoptimised_scales.append(None)
 
-    if os.path.exists(f'./data/scaling_data/{batch_name}_{opt_title}.txt'):
-        scale_data = np.loadtxt(f'./data/scaling_data/{batch_name}_{opt_title}.txt')
-        optimised_scales.append(scale_data[1:])
-    else:
-        optimised_scales.append(None)
+        opt_title = 'dist'
+
+        if os.path.exists(f'./data/scaling_data/{batch_name}_{opt_title}_rms.txt'):
+            scale_data = np.loadtxt(f'./data/scaling_data/{batch_name}_{opt_title}_rms.txt')
+            optimised_scales.append(scale_data[1:])
+        else:
+            optimised_scales.append(None)
+
+else:
+    for i in range(8):
+        opt_title = 'raw'
+        batch_name = f'wsa_nocmes_{i}'
+        if os.path.exists(f'./data/scaling_data/{batch_name}_{opt_title}.txt'):
+            scale_data = np.loadtxt(f'./data/scaling_data/{batch_name}_{opt_title}.txt')
+            unoptimised_scales.append(scale_data[1:])
+        else:
+            unoptimised_scales.append(None)
+
+        opt_title = 'dist'
+
+        if os.path.exists(f'./data/scaling_data/{batch_name}_{opt_title}.txt'):
+            scale_data = np.loadtxt(f'./data/scaling_data/{batch_name}_{opt_title}.txt')
+            optimised_scales.append(scale_data[1:])
+        else:
+            optimised_scales.append(None)
 
 # unoptimised_scales = [None, None, None, None, None, None, None, [1.08, -0.156]]
 # optimised_scales = [None, None, None, None, None, None, None, [ 0.8411262,  -0.05513745]]
@@ -71,8 +92,8 @@ def make_nicetitle(id):
 if plot_type == -1 or plot_type == 0: #Do timeseries and print out RMS values. Alas these appear to be consistently worse once optimised. Bugger. Yes.
     batch_names = []
 
-    do_scaled = False
-    do_optimised = False
+    do_scaled = True
+    do_optimised = True
 
     for i in range(8):
         batch_names.append(f'wsa_nocmes_{i}')
@@ -137,7 +158,7 @@ if plot_type == -1 or plot_type == 0: #Do timeseries and print out RMS values. A
         #Plot the differences NOT removing the CMEs
 
         # Then get the actual RMS figures using the CME filter. This is all awfully complicated.
-        filter_for_cmes = False
+        filter_for_cmes = True
         if filter_for_cmes:
             cme_mask = fcast.data_functions.get_cme_times(timeseries)
             invalid_times = np.where(cme_mask == 1)[0]
@@ -155,12 +176,11 @@ if plot_type == -1 or plot_type == 0: #Do timeseries and print out RMS values. A
         # print('Optimised STD for', batch_name, np.sqrt(np.nanmean((optimised_wsa-omni_ref_1)**2)))
         plt.plot(time_slices, diff_slices, label = f'{make_nicetitle(i)}, rms = {rms:.0f}km/s')
 
-
     plt.legend(fontsize=10)
-    plt.title('Mean absolute wind speed error, default wsa')
+    plt.title('Mean absolute wind speed error, optimised for distributions and scaled for Skill Score')
     plt.ylim(0,500)
     plt.tight_layout()
-    plt.savefig('./plots/errors_wsa_unscaled.png')
+    plt.savefig('./plots/errors_dist_ss.png')
     plt.show()
 
 if plot_type == -1 or plot_type == 1: #Do histogram comparison
