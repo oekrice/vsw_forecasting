@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import copy
 
 
-def windmap(snap, r_hb, path="./", codepath="./viz/fortran/"):
+def windmap(snap, r_hb, path="./", codepath="./wind_forecast/viz/fortran/"):
     """
     Using precompiled fortran, computes the Schatten extension, coronal hole map, expansion factors etc.
     Doesn't compute the wind speed, as that has many quick-to-change parameters
@@ -41,7 +41,7 @@ def windmap(snap, r_hb, path="./", codepath="./viz/fortran/"):
     return
 
 
-def windbnd(snap, r_hb, path="./", codepath="./viz/fortran/"):
+def windbnd(snap, r_hb, path="./", codepath="./wind_forecast/viz/fortran/"):
     """
     Using the outputs from the computed Schatten field, determine the distribution of radial velocities at r_hb
     """

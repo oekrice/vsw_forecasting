@@ -319,7 +319,7 @@ def update_directory(update_type, fname, snap_id, args):
         data_added = False
         for ri, row in enumerate(directory_data):
             if snap_id == int(row[1]):
-                directory_data[row] = new_row_data
+                directory_data[ri] = new_row_data
                 data_added = True
                 break
         if not data_added:

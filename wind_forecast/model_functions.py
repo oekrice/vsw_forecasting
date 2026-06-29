@@ -12,10 +12,10 @@ from datetime import datetime, timedelta
 import csv
 
 from .data_functions import check_existing_data
-from .field_calculations import compute_vr, get_vsw
+from .field_calculations import compute_vr, get_vsw, calculate_outflow, calculate_chb_exp
 from .stats_functions import get_average_speeds, get_distribution_similarity, get_wasserstein_distance
 
-def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, output_distributions=False, save_speeds=False):
+def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, output_distributions=False, save_speeds=False, use_old_chb_formula=False):
     """
     Using the parameter disctionary, will run the base model AND HuxT. If a run_name is provided, will save out data as it goes.
     So many variations need to be tested here, but I think I can do it...
@@ -59,12 +59,12 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
             if run_parameters["verbose"]:
                 print(f'Running base model at time {obs_time}')
             #Check if base model already exists for these data, and the metadata all match (should put this check in an extra function. Each 'data' file should have a lookup table for it, I think)
-            if data_lookup[snap_id] < 1: #The base model data doesn't exist, so recalculate
-                fcast.calculate_outflow(snap_id,  obs_time, rss = run_parameters["r_ss"],
+            if data_lookup[snap_id] < 1 or run_parameters["overwrite_base_model"]: #The base model data doesn't exist, so recalculate
+                calculate_outflow(snap_id,  obs_time, rss = run_parameters["r_ss"],
                                         overwrite=True, is_pfss=is_pfss, output_directory=run_name, save_snap=True,
                                         source= run_parameters["data_source"],resolutions=run_parameters["resolutions"])
-            if data_lookup[snap_id] < 2: #The CHB and expansion factor data doesn't exist, so do that.
-                fcast.calculate_chb_exp(snap_id,  run_name, r_hb = run_parameters["r_hb"], purge_data=True)
+            if data_lookup[snap_id] < 2 or run_parameters["overwrite_base_model"]: #The CHB and expansion factor data doesn't exist, so do that.
+                calculate_chb_exp(snap_id,  run_name, r_hb = run_parameters["r_hb"], purge_data=True, use_old_formula=use_old_chb_formula)
 
     if run_parameters["verbose"]:
         print('Coronal hole distances and expansion factors computed for all requested snaps')
@@ -92,123 +92,128 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
     alltimes = []
     allspeeds = []
     allspeeds_ref = []
-    for si, snap_id in enumerate(snap_subset):
-        obs_time = run_parameters["observation_time"][snap_id]
-        if run_parameters["verbose"]:
-            print(f'Running HuXT forecast model at time {obs_time}')
 
-        if run_parameters["velocity_type"] == "wsa" or run_parameters["velocity_type"] == "wsa_scaled" :
-            #This is the polynomial expression
-            if theta is not None:
-                if si == 0:
-                    vr = compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
-                else:
-                    vr = compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
-            else:
-                if run_parameters["verbose"]:
-                    print('Using default WSA parameters')
-                if si == 0:
-                    vr = compute_vr(snap_id, run_name, method="wsa", params = None, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
-                else:
-                    vr = compute_vr(snap_id, run_name, method="wsa", params = None, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
-
-        elif run_parameters["velocity_type"] == "neural_net":
+    if run_parameters["calculate_huxt"]:
+        for si, snap_id in enumerate(snap_subset):
+            obs_time = run_parameters["observation_time"][snap_id]
             if run_parameters["verbose"]:
-                print('Using neural net parameters', theta)
-            if si == 0:
-                vr = compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
-            else:
-                vr = compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+                print(f'Running HuXT forecast model at time {obs_time}')
 
+            if run_parameters["velocity_type"] == "wsa" or run_parameters["velocity_type"] == "wsa_scaled" :
+                #This is the polynomial expression
+                if theta is not None:
+                    if si == 0:
+                        vr = compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                    else:
+                        vr = compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+                else:
+                    if run_parameters["verbose"]:
+                        print('Using default WSA parameters')
+                    if si == 0:
+                        vr = compute_vr(snap_id, run_name, method="wsa", params = None, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                    else:
+                        vr = compute_vr(snap_id, run_name, method="wsa", params = None, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+
+            elif run_parameters["velocity_type"] == "neural_net":
+                if run_parameters["verbose"]:
+                    print('Using neural net parameters', theta)
+                if si == 0:
+                    vr = compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                else:
+                    vr = compute_vr(snap_id, run_name, method="neural_net", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+
+            else:
+                raise Exception("Velocity calculation type not recognised...")
+
+            if run_parameters["verbose"]:
+                print('Calculating VSW with HuxT...')
+
+            #Using this velocity map (and nothing else?), run HuxT
+            times, model_speeds, _ = get_vsw(snap_id, run_parameters["base_name"], obs_time, vr, spinup_cme_days=run_parameters["spinup_time"], fcast_length=run_parameters["forecast_length"])
+            omni_times, omni_speeds = get_average_speeds([omni_dates], [omni_vs], spinup_time = 0, cadence = 24, target_times = times, verbose=run_parameters["verbose"])
+
+            alltimes.append(times)
+            allspeeds.append(model_speeds)
+            allspeeds_ref.append(omni_speeds)
+
+            if run_parameters["do_plots"] and si == 0:
+                import matplotlib.pyplot as plt
+
+                if not os.path.exists('plots'):
+                    os.mkdir('plots')
+                if not os.path.exists(f'plots/{run_parameters["run_name"]}'):
+                    os.mkdir(f'plots/{run_parameters["run_name"]}')
+
+                fig = plt.figure(figsize=(10,7))
+                plt.plot(omni_times, model_speeds)
+                plt.plot(omni_times, omni_speeds)
+                #plt.title(f'Distance metric: {skillscores[-1]}')
+                plt.savefig('./plots/%s/timeseries_%05d.png' % (run_parameters["run_name"], iteration))
+                print(f'Plot saved to {'./plots/%s/timeseries_%05d.png' % (run_parameters["run_name"], iteration)}')
+                #plt.show()
+                plt.close()
+
+        if run_parameters["optimisation_type"] == "dtw":
+            from dtaidistance import dtw
+
+            #For DTW, need to compare each set individually, which I concede is a bit of a pain.
+            for si in range(len(allspeeds)):
+                omni_speeds = allspeeds_ref[si]
+                model_speeds = allspeeds[si]
+                dtw_distance = dtw.distance(omni_speeds, model_speeds)
+                skillscores.append(dtw_distance)
+        elif run_parameters["optimisation_type"] == "least_squares":
+
+            times_avg, speeds_avg = get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence = 24, verbose=True)
+            times_ref_avg, speeds_ref_avg = get_average_speeds(alltimes, allspeeds_ref, spinup_time = 0, cadence = 24, verbose=True)
+
+            if save_speeds:
+                if run_parameters["verbose"] == True:
+                    print('Saving out raw speed data...')
+
+                times_avg = np.array(times_avg, dtype='datetime64[s]')
+                times_ref_avg = np.array(times_ref_avg, dtype='datetime64[s]')
+                #Save out the speeds to a normal txt file, so analysis on them is easy. Do need all the information though.
+                if not os.path.exists('./data/raw_speeds/'):
+                    os.mkdir('./data/raw_speeds/')
+                np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds.txt', speeds_avg, delimiter = ',')
+                np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds_ref.txt', speeds_ref_avg, delimiter = ',')
+                np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_times.txt', times_avg, fmt='%s', delimiter = ',')
+                np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_times_ref.txt', times_ref_avg, fmt='%s', delimiter = ',')
+
+                #print('Overall maximum speed (and ref):', np.max(allspeeds), np.max(allspeeds_ref))
+
+                if run_parameters["verbose"] == True:
+                    print(f'Raw speed data saved with root {run_parameters["run_name"]}_{run_parameters["velocity_type"]}')
+            speeds = np.concatenate(allspeeds)
+            speeds_ref = np.concatenate(allspeeds_ref)
+
+            leastsquares_distance = np.sqrt(np.mean((speeds - speeds_ref)**2))
+            skillscores.append(leastsquares_distance)
+        elif run_parameters["optimisation_type"] == "wasserstein":
+            speeds = np.concatenate(allspeeds)
+            speeds_ref = np.concatenate(allspeeds_ref)
+            wasserstein_distance = get_wasserstein_distance(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
+            skillscores.append(wasserstein_distance)
+        elif run_parameters["optimisation_type"] == "distribution":
+            speeds = np.concatenate(allspeeds)
+            speeds_ref = np.concatenate(allspeeds_ref)
+            distribution_similarity, dists = get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
+            skillscores.append(distribution_similarity)
+            print('Overall maximum speed (and ref):', np.max(speeds), np.max(speeds_ref))
         else:
-            raise Exception("Velocity calculation type not recognised...")
+            raise Exception('Optimisation type not recognised')
 
         if run_parameters["verbose"]:
-            print('Calculating VSW with HuxT...')
+            print('Skillscore', skillscores[0])
 
-        #Using this velocity map (and nothing else?), run HuxT
-        times, model_speeds, _ = get_vsw(snap_id, run_parameters["base_name"], obs_time, vr, spinup_cme_days=run_parameters["spinup_time"], fcast_length=run_parameters["forecast_length"])
-        omni_times, omni_speeds = get_average_speeds([omni_dates], [omni_vs], spinup_time = 0, cadence = 24, target_times = times, verbose=run_parameters["verbose"])
-
-        alltimes.append(times)
-        allspeeds.append(model_speeds)
-        allspeeds_ref.append(omni_speeds)
-
-        if run_parameters["do_plots"] and si == 0:
-            import matplotlib.pyplot as plt
-
-            if not os.path.exists('plots'):
-                os.mkdir('plots')
-            if not os.path.exists(f'plots/{run_parameters["run_name"]}'):
-                os.mkdir(f'plots/{run_parameters["run_name"]}')
-
-            fig = plt.figure(figsize=(10,7))
-            plt.plot(omni_times, model_speeds)
-            plt.plot(omni_times, omni_speeds)
-            #plt.title(f'Distance metric: {skillscores[-1]}')
-            plt.savefig('./plots/%s/timeseries_%05d.png' % (run_parameters["run_name"], iteration))
-            print(f'Plot saved to {'./plots/%s/timeseries_%05d.png' % (run_parameters["run_name"], iteration)}')
-            #plt.show()
-            plt.close()
-
-    if run_parameters["optimisation_type"] == "dtw":
-        from dtaidistance import dtw
-
-        #For DTW, need to compare each set individually, which I concede is a bit of a pain.
-        for si in range(len(allspeeds)):
-            omni_speeds = allspeeds_ref[si]
-            model_speeds = allspeeds[si]
-            dtw_distance = dtw.distance(omni_speeds, model_speeds)
-            skillscores.append(dtw_distance)
-    elif run_parameters["optimisation_type"] == "least_squares":
-
-        times_avg, speeds_avg = get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence = 24, verbose=True)
-        times_ref_avg, speeds_ref_avg = get_average_speeds(alltimes, allspeeds_ref, spinup_time = 0, cadence = 24, verbose=True)
-
-        if save_speeds:
-            if run_parameters["verbose"] == True:
-                print('Saving out raw speed data...')
-
-            times_avg = np.array(times_avg, dtype='datetime64[s]')
-            times_ref_avg = np.array(times_ref_avg, dtype='datetime64[s]')
-            #Save out the speeds to a normal txt file, so analysis on them is easy. Do need all the information though.
-            if not os.path.exists('./data/raw_speeds/'):
-                os.mkdir('./data/raw_speeds/')
-            np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds.txt', speeds_avg, delimiter = ',')
-            np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds_ref.txt', speeds_ref_avg, delimiter = ',')
-            np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_times.txt', times_avg, fmt='%s', delimiter = ',')
-            np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_times_ref.txt', times_ref_avg, fmt='%s', delimiter = ',')
-
-            #print('Overall maximum speed (and ref):', np.max(allspeeds), np.max(allspeeds_ref))
-
-            if run_parameters["verbose"] == True:
-                print(f'Raw speed data saved with root {run_parameters["run_name"]}_{run_parameters["velocity_type"]}')
-        speeds = np.concatenate(allspeeds)
-        speeds_ref = np.concatenate(allspeeds_ref)
-
-        leastsquares_distance = np.sqrt(np.mean((speeds - speeds_ref)**2))
-        skillscores.append(leastsquares_distance)
-    elif run_parameters["optimisation_type"] == "wasserstein":
-        speeds = np.concatenate(allspeeds)
-        speeds_ref = np.concatenate(allspeeds_ref)
-        wasserstein_distance = get_wasserstein_distance(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
-        skillscores.append(wasserstein_distance)
-    elif run_parameters["optimisation_type"] == "distribution":
-        speeds = np.concatenate(allspeeds)
-        speeds_ref = np.concatenate(allspeeds_ref)
-        distribution_similarity, dists = get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
-        skillscores.append(distribution_similarity)
-        print('Overall maximum speed (and ref):', np.max(speeds), np.max(speeds_ref))
+        if not output_distributions:
+            return np.mean(skillscores)
+        else:
+            return np.mean(skillscores), dists
     else:
-        raise Exception('Optimisation type not recognised')
-
-    if run_parameters["verbose"]:
-        print('Skillscore', skillscores[0])
-
-    if not output_distributions:
-        return np.mean(skillscores)
-    else:
-        return np.mean(skillscores), dists
+        print('Not running HUXt, but everything else seems to have worked')
+        return None
 
 def do_model_statistics(run_name, compare_to_persist=True):
     import matplotlib.pyplot as plt

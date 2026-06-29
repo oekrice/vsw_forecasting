@@ -7,6 +7,7 @@ import datetime
 from datetime import timedelta
 import astropy.units as u
 from sunpy.coordinates.sun import B0
+from scipy.ndimage import sobel
 
 import copy
 
@@ -15,11 +16,12 @@ from astropy.time import Time
 import astropy.units as u
 import csv
 
-from .data_functions import load_chb_distances, get_PFSS_maps_local
+from .data_functions import load_chb_distances, get_PFSS_maps_local, update_directory
 from .viz.huxt.code import huxt_inputs as Hin
 from .viz.huxt.code import huxt as H
 from .viz.huxt.code import huxt_analysis as HA
 from .prepare import pfss, data_gong, output_netcdf
+from .viz.tools import wind
 
 def get_cme_fname(src_folder, tmatch):
     """
@@ -293,7 +295,7 @@ def calculate_outflow(snap_id, obs_time, output_directory=None, overwrite=False,
         print('Outflow field already exists for this time. Use flag "overwrite=True" to recalculate.')
         return
 
-def calculate_chb_exp(snap_id, batch_name, r_hb=21.5, overwrite=False, purge_data=False):
+def calculate_chb_exp(snap_id, batch_name, r_hb=21.5, overwrite=True, purge_data=False, use_old_formula=False):
     """
     Calculates an outflow/PFSS field, the Schatten extension and saves the coronal hole distances and expansion factors
     Needs the appropriate base field to have been calculated already.
@@ -328,14 +330,14 @@ def calculate_chb_exp(snap_id, batch_name, r_hb=21.5, overwrite=False, purge_dat
 
     if not os.path.isfile(windmap_fname) or overwrite:  #If file doesn't exist, do a thing
         # '#Calculate the Schatten Extension/coronal holes etc. Requires the above file to be saved as the Fortran reads it in.'
-        wind.windmap(base_fname, r_hb, path=path+'/'+batch_name+"/", codepath=os.getcwd() +'/viz/fortran/')
+        wind.windmap(base_fname, r_hb, path=path+'/'+batch_name+"/", codepath=os.getcwd() +'/wind_forecast/viz/fortran/')
     else:
         print('Schatten file already calculated, so using that. Set overwrite=True to recalculate.')
 
     chb_fname = path + '/'+ batch_name+ "/" + "chb_" + ('%09d' % snap_id) + ".nc"
 
     if not os.path.isfile(chb_fname) or overwrite:  #If file doesn't exist, do a thing
-        compute_coronal_hole_distances(snap_id, windmap_fname, batch_name, path=path+'/'+batch_name+"/")
+        compute_coronal_hole_distances(snap_id, windmap_fname, batch_name, path=path+'/'+batch_name+"/", use_old_formula=use_old_formula)
         update_directory("chbetc", batch_name, snap_id, [r_hb])  #This should update the log of what has been calculated already. Will be tricksy, I think, to make sure the data stays uncorrupted.
     else:
         print('CHB/Expansion factor file already calculated, so using that. Set overwrite=True to recalculate.')
@@ -459,7 +461,7 @@ def expansionfactor(rm, r0, brm, br0):
 
     return fs
 
-def compute_coronal_hole_distances(snap_id, windmap_fname, batch_name, path='./', save_file=True):
+def compute_coronal_hole_distances(snap_id, windmap_fname, batch_name, path='./', save_file=True, use_old_formula=False):
 
 
     """
@@ -508,7 +510,11 @@ def compute_coronal_hole_distances(snap_id, windmap_fname, batch_name, path='./'
         np.abs(sm) <= 1
     )  # points without bad mapping (U-shaped field lines or HCS)
 
-    chd[igood] = chbmap_45(snap_id, sm[igood], phm[igood], path=path, codepath="./viz/fortran/")
+    if not use_old_formula:
+        chd[igood] = chbmap_45(snap_id, sm[igood], phm[igood], path=path, codepath="./viz/fortran/")
+    else:
+        print('Using the OLD chbmap formula (only available for testing)')
+        chd[igood] = chbmap_old(snap_id, sm[igood], phm[igood], path=path, codepath="./viz/fortran/")
 
     # Compute map of flux-tube expansion factors traced down through combined model:
     fs = sm * 0
@@ -564,6 +570,76 @@ def compute_coronal_hole_distances(snap_id, windmap_fname, batch_name, path='./'
     print('Saved coronal hole distances and expansion factors to file:', chb_fname)
 
     return
+
+def chbmap_old(snap, sm, pm, path="./", codepath="./fortran/", make_plot=False):
+
+    #Check coronal hole map exists (should already have been calculated)
+    ch_fname = os.path.join(path, "chmap_outflow_" + ('%09d' % snap) + ".nc.unf")
+    if not os.path.exists(ch_fname):
+        raise Exception('Coronal hole map not found at ', ch_fname)
+
+
+    fid = FortranFile(ch_fname, "r")
+    sc = fid.read_reals(dtype=np.float64)
+    pc = fid.read_reals(dtype=np.float64)
+    chmap = fid.read_ints(dtype=np.int32).reshape(
+        (np.size(pc, 0) - 1, np.size(sc, 0) - 1)
+    )
+    chmap = np.swapaxes(chmap, 0, 1)
+    fid.close()
+
+
+    # - detect edges in map:
+    sx = sobel(chmap, axis=0, mode="constant")
+    sy = sobel(chmap, axis=1, mode="constant")
+    ed = (np.hypot(sx, sy) > 0.005).astype("int")
+    ed[0, :] = 0
+    ed[-1, :] = 0
+    ed[:, 0] = 0
+    ed[:, -1] = 0
+    s, p = np.meshgrid(
+        0.5 * (sc[1:] + sc[:-1]), 0.5 * (pc[1:] + pc[:-1]), indexing="ij"
+    )
+    ped = p[ed == 1]
+    sed = s[ed == 1]
+
+    # - compute minimum spherical angle from each footpoint to edge list:
+    #   (set to 0 for field lines with no photospheric mapping, e.g. open-open)
+    chd = pm * 0
+    sthm = np.sqrt(1 - sm ** 2)
+    sthed = np.sqrt(1 - sed ** 2)
+    for i in range(np.size(chd)):
+        angs = np.real(np.arccos(sm[i] * sed + sthm[i] * sthed * np.cos(pm[i] - ped)))
+        chd[i] = np.min(angs)
+
+    # For plotting purposes, make an alternative map not of the footpoints
+
+    if make_plot:
+        fig, axs = plt.subplots(3,1)
+        axs[0].pcolormesh(chmap.T)
+
+        xs = []; ys = []; minangs = []
+        for i in range(np.size(chd)):
+            angs = np.real(np.arccos(sm[i] * sed + sthm[i] * sthed * np.cos(pm[i] - ped)))
+            xs.append(sm[i])
+            ys.append(pm[i])
+            minangs.append(np.min(angs))
+
+        axs[1].pcolormesh(ed)
+
+        axs[2].scatter(ys, xs, s = 0.1, c = minangs)
+
+        for ax in axs:
+            ax.set_xticks([])
+            ax.set_yticks([])
+        plt.tight_layout()
+        #plt.savefig('./plots/coronal_holes.png')
+        plt.show()
+
+    file_flag = 1 # flag to change file string to know which .nc outputs are using wsa 4.5 edge detection
+
+    # - output distance in degrees:
+    return np.rad2deg(chd)
 
 def chbmap_45(snap, sm, pm, path="./", codepath="./fortran/", make_plot=False):
 

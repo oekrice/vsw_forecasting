@@ -20,5 +20,6 @@ __all__ = [
     "huxt_analysis",
     "pfss",
     "data_gong",
-    "output_netcdf"
+    "output_netcdf",
+    "wind"
 ]

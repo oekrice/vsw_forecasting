@@ -15,6 +15,15 @@ if len(sys.argv) > 1:
 else:
     plot_type = -1
 
+def scale_function(m, c, series):
+    """
+    Just does mx+c on the timeseries. Can optimise the skill scores based on that, hopefully
+    """
+    return series*m + c*100
+
+unoptimised_scales = [None, None, None, None, None, None, None, [1.08, -0.156]]
+optimised_scales = [None, None, None, None, None, None, None, [ 0.8411262,  -0.05513745]]
+
 def make_nicetitle(id):
     if (id//2)%2 == 0:
         is_pfss = True
@@ -36,7 +45,7 @@ def make_nicetitle(id):
 
 if plot_type == -1 or plot_type == 0: #Do timeseries and print out RMS values. Alas these appear to be consistently worse once optimised. Bugger.
     batch_names = []
-    for i in range(7,8):
+    for i in range(8):
         batch_names.append(f'wsa_nocmes_{i}')
 
     fig = plt.figure(figsize=(12,6))
@@ -85,7 +94,7 @@ if plot_type == -1 or plot_type == 0: #Do timeseries and print out RMS values. A
 
 if plot_type == -1 or plot_type == 1: #Do histogram comparison
     batch_names = []
-    for i in range(7,8):
+    for i in range(8):
         batch_names.append(f'wsa_nocmes_{i}')
 
     fig = plt.figure(figsize=(12,6))
@@ -113,6 +122,8 @@ if plot_type == -1 or plot_type == 1: #Do histogram comparison
             omni_ref_0[invalid_times] = np.nan
             omni_ref_1[invalid_times] = np.nan
 
+
+
         nbins = 101
         hist_wsa, _ = np.histogram(wsa, bins=nbins, range=(0.0,1000.0))
         hist_optimised_wsa, _ = np.histogram(optimised_wsa, bins=nbins, range=(0.0,1000.0))
@@ -137,13 +148,13 @@ if plot_type == -1 or plot_type == 2: #Do 'persistence metric' or equivalent, fo
 
     run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
-    doruns = [7]
+    doruns = np.arange(8)
     batch_names = []
     for i in range(8):
         batch_names.append(f'wsa_nocmes_{i}')
-    fig = plt.figure(figsize=(12,6))
 
     for i in doruns:
+        fig = plt.figure(figsize=(12,6))
 
         batch_name = batch_names[i]
         wsa_fname = f'./data/raw_speeds/{batch_name}_wsa_speeds.txt'
@@ -155,8 +166,6 @@ if plot_type == -1 or plot_type == 2: #Do 'persistence metric' or equivalent, fo
 
         if not(os.path.exists(wsa_fname) and os.path.exists(optimised_fname) and os.path.exists(ref_fname_0) and os.path.exists(ref_fname_1)):
             continue
-
-
 
         wsa = np.loadtxt(wsa_fname, delimiter = ',')
         optimised_wsa = np.loadtxt(optimised_fname, delimiter = ',')
@@ -171,6 +180,10 @@ if plot_type == -1 or plot_type == 2: #Do 'persistence metric' or equivalent, fo
             omni_ref_0[invalid_times] = np.nan
             omni_ref_1[invalid_times] = np.nan
 
+        if False:  #Apply scaling as determined by scale_for_persistence.py
+            wsa = scale_function(unoptimised_scales[i][0], unoptimised_scales[i][1], wsa)
+            optimised_wsa = scale_function(optimised_scales[i][0], optimised_scales[i][1], optimised_wsa)
+
         thresholds = np.arange(450,600,5)
         scores = fcast.stats_functions.do_met_stats(None, wsa, omni_ref_0)
 
@@ -179,8 +192,8 @@ if plot_type == -1 or plot_type == 2: #Do 'persistence metric' or equivalent, fo
         scores = fcast.stats_functions.do_met_stats(None, optimised_wsa, omni_ref_0)
         plt.plot(thresholds, scores, label = f'{make_nicetitle(i)}, optimised parameters')
 
-    plt.legend()
-    plt.title('Raw persistence skill scores')
+        plt.legend()
+        plt.title('Raw persistence skill scores')
 
-    plt.tight_layout()
-    plt.show()
+        plt.tight_layout()
+        plt.show()
