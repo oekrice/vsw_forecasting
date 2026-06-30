@@ -33,6 +33,13 @@ use_neural_net = False
 #Can specify file name to look up WSA parameters? Yeah, probably.
 run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
+base_selection = 2
+batch_bases = ["wsa", "wsa_nocmes", "rms_nocmes"]
+titles1 = ["Default WSA", "Velocities Optimised for Distributions", "Velocities Optimised for RMS"]
+
+batch_base = batch_bases[base_selection]
+title1 = titles1[base_selection]
+
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
 for plot_num, batch_id in enumerate(np.arange(8)):
@@ -53,14 +60,18 @@ for plot_num, batch_id in enumerate(np.arange(8)):
         source = "gong"
     else:
         source = "hmi"
+
     run_name = run_names[batch_id]
 
+    #Have a flag to plot the default parameters if just 'wsa' is selected
 
-    if use_neural_net:
-        batch_name = f"optimise_run_net_{batch_id}"
-        velocity_type = "neural_net"
-    else:
+    if batch_base == "wsa":
+        print('Using default wsa parameters as a reference for later')
         batch_name = f"wsa_nocmes_{batch_id}"
+        velocity_type = "wsa"
+
+    else:
+        batch_name = f"{batch_base}_{batch_id}"
         velocity_type = "wsa_scaled"
 
 
@@ -158,8 +169,10 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     iteration = 0
     print('Current theta', theta)
-    _, cmaps = fcast.model_functions.compute_vr(0, run_name, method=test_parameters["velocity_type"], params = theta, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
-
+    if batch_base == "wsa":
+        _, cmaps = fcast.model_functions.compute_vr(0, run_name, method=test_parameters["velocity_type"], params = None, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
+    else:
+        _, cmaps = fcast.model_functions.compute_vr(0, run_name, method=test_parameters["velocity_type"], params = theta, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
     vmesh, vr = cmaps
 
     ax = axs1[plot_num//4, plot_num%4]
@@ -168,126 +181,9 @@ for plot_num, batch_id in enumerate(np.arange(8)):
     ax.set_yticks([])
     ax.set_title(nicetitle)
 
-plt.suptitle('Optimised WSA model')
+plt.suptitle(title1)
 plt.tight_layout()
-if use_neural_net:
-    plt.savefig('./plots/velocities_optimised_wsa_net.png')
-else:
-    plt.savefig('./plots/velocities_optimised_wsa.png')
-plt.close()
-
-fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
-
-for plot_num, batch_id in enumerate(np.arange(8)):
-
-    #Get the model setup depending on the batch numbers
-    if (batch_id//2)%2 == 0:
-        is_pfss = True
-        model = "pfss"
-    else:
-        is_pfss = False
-        model = "outflow"
-    if (batch_id%2) == 0:
-        rss = 2.5
-    else:
-        rss = 5.0
-    if (batch_id//4) == 0:
-        source = "gong"
-    else:
-        source = "hmi"
-    run_name = run_names[batch_id]
-
-    nicetitle = f"{model}, rss = {rss}, source = {source}"
-    test_parameters = {"observation_time": obs_times,
-                    "base_name": run_names[batch_id],
-                    "run_name": f"optimise_run_{batch_id}",
-                    "model_type": model,
-                    "calculate_base_model": False,
-                    "overwrite_base_model": False,
-                    "calculate_huxt": False,
-                    "r_ss": rss,
-                    "WSA_type": "standard",
-                    "WSA_parameters": None,
-                    "data_source": source,
-                    "resolutions": [120,180,360],
-                    "r_hb": 21.5,
-                    "match_flag": False,
-                    "velocity_type": "wsa",
-                    "spinup_time": 5,
-                    "forecast_length": 5,
-                    "verbose": True,
-                    "optimisation_type": "distribution",
-                    "do_plots": True}
-
-    if not os.path.exists(f"./data/{test_parameters['run_name']}"):
-        os.mkdir(f"./data/{test_parameters['run_name']}")
-
-    if not os.path.exists(f"./plots/{test_parameters['run_name']}"):
-        os.mkdir(f"./plots/{test_parameters['run_name']}")
-
-    if len(sys.argv) > 2:
-        if sys.argv[2] == 'ham8':
-            print('Copying log file from Hamilton')
-            os.system(f"scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{test_parameters["run_name"]}/log.csv ./data/{test_parameters["run_name"]}/")
-        else:
-            raise Exception("Second argument not recognised. Use 'ham8' to copy Hamilton data")
-
-    def load_directory():
-        directory_fname = f'./data/{test_parameters["run_name"]}/log.csv'
-        if os.path.exists(directory_fname):
-            #This directory already exists. Hopefully with proper header information etc
-            directory_data = []
-            with open(directory_fname, "r", encoding="utf-8") as f:
-                data = csv.reader(f)
-                for row in data:
-                    directory_data.append(row)
-        else:
-            print(f'Directory data not found with fname {directory_fname}')
-
-        #Run through loaded directory and deduce information
-        scores = []
-        sigmas = []
-        thetas = []
-        for row in directory_data[1:]:
-            scores.append(float(row[1]))
-            sigmas.append(float(row[2]))
-            thetas.append(row[3:])
-
-        scores = np.array(scores)
-        sigmas = np.array(sigmas)
-        thetas = np.array(thetas, dtype='float')
-
-        return scores, sigmas, thetas
-
-    nsamples = 1
-    valid_snaps = np.arange(5478)
-    random.shuffle(valid_snaps)
-    snap_subset = np.array([0] + list(valid_snaps[:nsamples-1]))
-
-    scores, sigmas, thetas = load_directory()
-
-    nthetas = np.shape(thetas)[0]
-
-    if plot_specific < 0:
-        i = len(thetas) - 1
-    else:
-        i = plot_specific
-
-    iteration = 0
-    print('Current theta', thetas[i])
-    _, cmaps = fcast.model_functions.compute_vr(0, run_name, method="wsa", params = None, doplot=test_parameters["do_plots"], iteration=iteration, huxt_name=test_parameters["run_name"], output_cmaps=True)
-
-    vmesh, vr = cmaps
-
-    ax = axs1[plot_num//4, plot_num%4]
-    ax.pcolormesh(vr[30:-30,:], vmax=1000)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_title(nicetitle)
-
-plt.suptitle('Default WSA model')
-plt.tight_layout()
-plt.savefig('./plots/velocities_default_wsa.png')
+plt.savefig(f'./plots/velocities_{batch_base}.png')
 plt.close()
 
 

@@ -63,7 +63,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     test_parameters = {"observation_time": obs_times,
                     "base_name": run_names[batch_id],
-                    "run_name": f"optimise_run_{batch_id}",
+                    "run_name": f"rms_nocmes_{batch_id}",
                     "model_type": model,
                     "calculate_base_model": False,
                     "overwrite_base_model": False,

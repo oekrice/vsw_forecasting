@@ -28,7 +28,7 @@ def scale_function(m, c, series):
 unoptimised_scales = []
 optimised_scales = []
 
-do_ss_scaling = True
+do_ss_scaling = False
 if not do_ss_scaling:  #Do linear scaling based on rms, not skillscore
     for i in range(8):
         opt_title = 'raw'
@@ -93,7 +93,7 @@ if plot_type == -1 or plot_type == 0: #Do timeseries and print out RMS values. A
     batch_names = []
 
     do_scaled = True
-    do_optimised = True
+    do_optimised = False
 
     for i in range(8):
         batch_names.append(f'wsa_nocmes_{i}')
@@ -177,10 +177,10 @@ if plot_type == -1 or plot_type == 0: #Do timeseries and print out RMS values. A
         plt.plot(time_slices, diff_slices, label = f'{make_nicetitle(i)}, rms = {rms:.0f}km/s')
 
     plt.legend(fontsize=10)
-    plt.title('Mean absolute wind speed error, optimised for distributions and scaled for Skill Score')
+    plt.title('Mean absolute wind speed error, default WSA scaled for RMS')
     plt.ylim(0,500)
     plt.tight_layout()
-    plt.savefig('./plots/errors_dist_ss.png')
+    plt.savefig('./plots/errors_raw_rms.png')
     plt.show()
 
 if plot_type == -1 or plot_type == 1: #Do histogram comparison
