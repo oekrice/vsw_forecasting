@@ -14,6 +14,7 @@ import csv
 from .data_functions import check_existing_data
 from .field_calculations import compute_vr, get_vsw, calculate_outflow, calculate_chb_exp
 from .stats_functions import get_average_speeds, get_distribution_similarity, get_wasserstein_distance
+from scipy.stats import pearsonr
 
 def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, output_distributions=False, save_speeds=False, use_old_chb_formula=False):
     """
@@ -201,6 +202,12 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
             distribution_similarity, dists = get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
             skillscores.append(distribution_similarity)
             print('Overall maximum speed (and ref):', np.max(speeds), np.max(speeds_ref))
+        elif run_parameters["optimisation_type"] == "correlation":
+            speeds = np.concatenate(allspeeds)
+            speeds_ref = np.concatenate(allspeeds_ref)
+            nas = np.logical_or(np.isnan(speeds), np.isnan(speeds_ref))
+            r, _ = pearsonr(speeds[~nas], speeds_ref[~nas])
+            skillscores.append(1.0 - r)
         else:
             raise Exception('Optimisation type not recognised')
 

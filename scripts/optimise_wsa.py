@@ -75,7 +75,7 @@ if use_neural_net:
     batch_name = f"optimise_run_net_{batch_id}"
     velocity_type = "neural_net"
 else:
-    batch_name = f"rms_nocmes_{batch_id}"
+    batch_name = f"corr_nocmes_{batch_id}"
     velocity_type = "wsa_scaled"
 
 test_parameters = {"observation_time": obs_times,
@@ -96,7 +96,7 @@ test_parameters = {"observation_time": obs_times,
                 "spinup_time": 5,
                 "forecast_length": 5,
                 "verbose": False,
-                "optimisation_type": "least_squares",
+                "optimisation_type": "correlation",
                 "do_plots": False,
                 "filter_cmes": True}
 

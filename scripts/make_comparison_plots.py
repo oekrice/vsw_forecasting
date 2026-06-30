@@ -12,6 +12,14 @@ Today, I'd like to generalise this so it works nicely. Alas the 'unscaled' raw w
 
 Either way, the data can all be read in AT THE START, and cehcekd for consistency etc., before various plots can be made resulting from them.
 """
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import wind_forecast as fcast
+from scipy.ndimage import gaussian_filter1d
+from datetime import datetime, timedelta
+from scipy.stats import pearsonr
 
 parameter_sources = ["raw", "wsa_nocmes", "rms_nocmes"]
 scale_sources = ["raw", "ss", "rms", "dist", "ss_raw"]
@@ -30,13 +38,6 @@ for a in range(2):
         parameter_shortnames = ["raw", "dist", "rms"]
         parameter_shortname = parameter_shortnames[parameter_select]
 
-        import os
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import sys
-        import wind_forecast as fcast
-        from scipy.ndimage import gaussian_filter1d
-        from datetime import datetime, timedelta
 
         filter_for_cmes = True
 
@@ -350,5 +351,76 @@ for a in range(2):
 
             plt.tight_layout()
             plt.savefig(f'./plots/data_comparison/skillscores_{parameter_shortname}_{scale_source}.png')
+
+            plt.close()
+
+
+        #Actually finally, plot the predicted speeds against the actual ones, and do some correlations (maybe)
+        if plot_type == -1 or plot_type == 3:
+
+            run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
+
+            batch_names = []
+
+            for i in range(8):
+                batch_names.append(f'{parameter_source}_{i}')
+
+            omni_fname = f'./data/raw_speeds/wsa_nocmes_0_wsa_speeds_ref.txt'
+            fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
+            for i, batch_name in enumerate(batch_names):
+
+                #Hopefully all things should be arranged nicely time-wise, but do need to check as much
+                if parameter_source == "raw":
+                    data_fname = f'./data/raw_speeds/wsa_nocmes_{i}_wsa_speeds.txt'
+
+                else:
+                    data_fname = f'./data/raw_speeds/{batch_name}_wsa_scaled_speeds.txt'
+
+                if not(os.path.exists(omni_fname) and os.path.exists(data_fname)):
+                    print('Files not found...', omni_fname, data_fname)
+                    continue
+
+                wsa = np.loadtxt(data_fname, delimiter = ',')
+                omni = np.loadtxt(omni_fname, delimiter = ',')
+
+                if parameter_source == "raw":
+                    timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_{i}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+                else:
+                    timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+
+                "Always filter for CMEs, but save this data separately"
+                cme_mask = fcast.data_functions.get_cme_times(timeseries)
+                invalid_times = np.where(cme_mask == 1)[0]
+
+                wsa_filtered = wsa.copy()
+                omni_filtered = omni.copy()
+                wsa_filtered[invalid_times] = np.nan
+                omni_filtered[invalid_times] = np.nan
+
+                if scales[i] is not None:
+                    wsa = scale_function(scales[i][0], scales[i][1], wsa)
+                    wsa_filtered = scale_function(scales[i][0], scales[i][1], wsa_filtered)
+
+                data_lengths = [len(wsa), len(omni)]
+
+                if not min(data_lengths) == max(data_lengths):
+                    raise Exception("Timeseries data lengths don't match. Not sure what to do...")
+
+                nas = np.logical_or(np.isnan(wsa_filtered), np.isnan(omni_filtered))
+                r, _ = pearsonr(wsa_filtered[~nas], omni_filtered[~nas])
+                ax = axs1[i//4, i%4]
+                ax.scatter(wsa_filtered, omni_filtered, c = 'black', s = 0.1)
+                #ax.plot(hist_ref, c = 'black', linestyle = 'dashed')
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_xlim(200,800)
+                ax.set_ylim(200,800)
+                ax.set_title(f"{make_nicetitle(i)}, r = {r:.3f}", fontsize = 10)
+                #ax.set_ylim(-0.005,0.15)
+
+            plt.suptitle(f"{suptitle}")
+
+            plt.tight_layout()
+            plt.savefig(f'./plots/data_comparison/correlation_{parameter_shortname}_{scale_source}.png')
 
             plt.close()
