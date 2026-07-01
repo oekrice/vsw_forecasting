@@ -214,6 +214,23 @@ class VelocityNet():
 
         return
 
+def find_ideal_sigma_index(sigmas, threshold=0.5, cutoff=50):
+    """
+    There has become too much inconsitency in the ways that the best sigma is calculated, so probably best just put it in this function
+    Some of the optimisation runs don't converge, but do reasonably well for A BIT.
+    Cut off everything after what that BIT entails, and then find a theta where sigma was reasonably small before that.
+    """
+    #Find last point at which sigmas is below the threshold
+    if np.max(sigmas) < threshold:
+        last_point = len(sigmas) - 1
+    else:
+        last_point = np.max(np.where(sigmas <= threshold)[0])
+    mincheck = max(0, last_point - cutoff + 1)
+    maxcheck = last_point + 1
+    scores = sigmas[mincheck:maxcheck]
+    min_index = int(np.where(scores == np.min(scores))[0][0] + mincheck)
+    return min_index
+
 def get_wasserstein_distance(speeds1, speeds2, nbins=101, doplots=False, huxt_name=None, iteration=0):
     """
     Given two (aligned) distributions of speeds, returns the Wasserstein distance between them.

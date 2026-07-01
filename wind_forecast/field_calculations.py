@@ -17,6 +17,7 @@ import astropy.units as u
 import csv
 
 from .data_functions import load_chb_distances, get_PFSS_maps_local, update_directory
+from .stats_functions import VelocityNet
 from .viz.huxt.code import huxt_inputs as Hin
 from .viz.huxt.code import huxt as H
 from .viz.huxt.code import huxt_analysis as HA
@@ -114,7 +115,7 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         vr = vslow + 0.5*(vfast - vslow) * (1.0 + np.tanh((np.deg2rad(chb) - ep) / w))
 
     if method == "neural_net":
-        Net = fcast.VelocityNet()
+        Net = VelocityNet()
         if params is None:
             params = np.zeros((Net.nparas))
         elif len(params) != Net.nparas:
@@ -125,15 +126,9 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         # print('Net nparas:', Net.nparas)
         # print('Input nparas:', params)
 
-    if doplot:
+    #Calculate meshgrid of reasonable speeds
 
-        print('Doing plot. Here are the parameters:', method, params)
-        if not os.path.exists('plots'):
-            os.mkdir('plots')
-        if not os.path.exists(f'plots/{huxt_name}'):
-            os.mkdir(f'plots/{huxt_name}')
-
-        #Calculate meshgrid of reasonable speeds
+    if doplot or output_cmaps:
         fss = np.linspace(0,10,200)
         chbs = np.linspace(0,5,100)
 
@@ -144,10 +139,18 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
                 vslow  + (vfast - vslow) * (((np.abs(b - g * np.exp(-(chbs / w) ** d))) ** i)/((1.0 + fss) ** a))
             )
         else:
-            Net = fcast.VelocityNet()
+            Net = VelocityNet()
 
             Net.update_network(params)
             vmesh = Net.velocity((chbs, fss))
+
+    if doplot:
+
+        print('Doing plot. Here are the parameters:', method, params)
+        if not os.path.exists('plots'):
+            os.mkdir('plots')
+        if not os.path.exists(f'plots/{huxt_name}'):
+            os.mkdir(f'plots/{huxt_name}')
 
         #Do a plot of the chbs, expansions, velocity map and resulting pattern
         fig, axs = plt.subplots(2,2, figsize = (10,7))

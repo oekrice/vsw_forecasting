@@ -33,7 +33,6 @@ use_neural_net = False
 #Let's specify literally everything here, all the parameters which can happen.
 #Will need a lookup table or equivalent to find data which matches things as they should.
 #Can specify file name to look up WSA parameters? Yeah, probably.
-run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
 nsamples = 250
 valid_snaps = np.arange(len(obs_times))
@@ -44,252 +43,158 @@ cme_mask = fcast.data_functions.get_cme_times(obs_times)
 valid_times = np.where(cme_mask == 0)[0]
 valid_snaps = valid_snaps[valid_times]
 
-fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
+run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
-for plot_num, batch_id in enumerate(np.arange(0,8)):
+for base_selection in range(4):
+    batch_bases = ["wsa", "wsa_nocmes", "rms_nocmes", "corr_nocmes"]
+    titles1 = ["Default WSA", "Velocities Optimised for Distributions", "Velocities Optimised for RMS", "Velocities Optimised for Correlation"]
 
-    #Get the model setup depending on the batch numbers
-    if (batch_id//2)%2 == 0:
-        is_pfss = True
-        model = "pfss"
-    else:
-        is_pfss = False
-        model = "outflow"
-    if (batch_id%2) == 0:
-        rss = 2.5
-    else:
-        rss = 5.0
-    if (batch_id//4) == 0:
-        source = "gong"
-    else:
-        source = "hmi"
-    run_name = run_names[batch_id]
+    batch_base = batch_bases[base_selection]
+    title1 = titles1[base_selection]
 
-    nicetitle = f"{model}, rss = {rss}, source = {source}"
+    fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
-    if use_neural_net:
-        batch_name = f"optimise_run_net_{batch_id}"
-        velocity_type = "neural_net"
-    else:
-        batch_name = f"wsa_nocmes_{batch_id}"
-        velocity_type = "wsa_scaled"
+    for plot_num, batch_id in enumerate(np.arange(0,8)):
 
-    nicetitle = f"{model}, rss = {rss}, source = {source}"
-    test_parameters = {"observation_time": obs_times,
-                    "base_name": run_names[batch_id],
-                    "run_name": batch_name,
-                    "model_type": model,
-                    "calculate_base_model": False,
-                    "overwrite_base_model": False,
-                    "calculate_huxt": False,
-                    "r_ss": rss,
-                    "WSA_type": "standard",
-                    "WSA_parameters": None,
-                    "data_source": source,
-                    "resolutions": [120,180,360],
-                    "r_hb": 21.5,
-                    "match_flag": False,
-                    "velocity_type": velocity_type,
-                    "spinup_time": 5,
-                    "forecast_length": 5,
-                    "verbose": True,
-                    "optimisation_type": "distribution",
-                    "do_plots": True}
-
-    if not os.path.exists(f"./data/{test_parameters['run_name']}"):
-        os.mkdir(f"./data/{test_parameters['run_name']}")
-
-    if not os.path.exists(f"./plots/{test_parameters['run_name']}"):
-        os.mkdir(f"./plots/{test_parameters['run_name']}")
-
-    print('Copying log file from Hamilton')
-    os.system(f"scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{test_parameters["run_name"]}/log.csv ./data/{test_parameters["run_name"]}/")
-
-    def evaluate_theta(theta, snap_subset, iteration):
-        """
-        Will carry on even if there are errors.
-        """
-
-        skillscores = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration)
-
-        minimiser = np.mean(skillscores)
-        return minimiser
-
-    def load_directory():
-        directory_fname = f'./data/{test_parameters["run_name"]}/log.csv'
-        print('Directory', directory_fname)
-        if os.path.exists(directory_fname):
-            #This directory already exists. Hopefully with proper header information etc
-            directory_data = []
-            with open(directory_fname, "r", encoding="utf-8") as f:
-                data = csv.reader(f)
-                for row in data:
-                    directory_data.append(row)
+        #Get the model setup depending on the batch numbers
+        if (batch_id//2)%2 == 0:
+            is_pfss = True
+            model = "pfss"
         else:
-            print(f'Directory data not found with fname {directory_fname}')
-
-        #Run through loaded directory and deduce information
-        scores = []
-        sigmas = []
-        thetas = []
-        for row in directory_data[1:]:
-            scores.append(float(row[1]))
-            sigmas.append(float(row[2]))
-            thetas.append(row[3:])
-
-        scores = np.array(scores)
-        sigmas = np.array(sigmas)
-        thetas = np.array(thetas, dtype='float')
-
-        return scores, sigmas, thetas
-
-    try:
-        scores, sigmas, thetas = load_directory()
-    except:
-        print('Directory not found...')
-        continue
-
-    if find_min_sigma:   #Use the parameters at the point at which the solution appears to have converged the best
-        cut = 60
-        cut = min(len(scores), cut - 1)
-        scores = scores[-cut:]
-        min_index = int(np.where(scores == np.min(scores))[0][0] + len(thetas) - cut)
-        print('Min sigma location and overall length:', min_index, len(thetas))
-        theta = thetas[min_index]
-    else:
-        theta = thetas[-1]
-
-    nthetas = np.shape(thetas)[0]
-
-    iteration = 0
-    print('Current theta', theta)
-    skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
-
-    dist1, dist2 = dists
-
-    ax = axs1[plot_num//4, plot_num%4]
-    ax.plot(dist1)
-    ax.plot(dist2)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_title(nicetitle)
-
-    plt.tight_layout()
-
-    if use_neural_net:
-        plt.savefig('./plots/distributions_optimised_net.png')
-    else:
-        plt.savefig('./plots/distributions_optimised_wsa.png')
-
-# print('Not doing the default ones, as it should already be done...')
-# sys.exit()
-
-fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
-
-for plot_num, batch_id in enumerate(np.arange(0,8)):
-
-    #Get the model setup depending on the batch numbers
-    if (batch_id//2)%2 == 0:
-        is_pfss = True
-        model = "pfss"
-    else:
-        is_pfss = False
-        model = "outflow"
-    if (batch_id%2) == 0:
-        rss = 2.5
-    else:
-        rss = 5.0
-    if (batch_id//4) == 0:
-        source = "gong"
-    else:
-        source = "hmi"
-    run_name = run_names[batch_id]
-
-    nicetitle = f"{model}, rss = {rss}, source = {source}"
-
-    test_parameters = {"observation_time": obs_times,
-                    "base_name": run_names[batch_id],
-                    "run_name": f"wsa_nocmes_{batch_id}",
-                    "model_type": model,
-                    "calculate_base_model": False,
-                    "overwrite_base_model": False,
-                    "calculate_huxt": False,
-                    "r_ss": rss,
-                    "WSA_type": "standard",
-                    "WSA_parameters": None,
-                    "data_source": source,
-                    "resolutions": [120,180,360],
-                    "r_hb": 21.5,
-                    "match_flag": False,
-                    "velocity_type": "wsa",
-                    "spinup_time": 5,
-                    "forecast_length": 5,
-                    "verbose": True,
-                    "optimisation_type": "distribution",
-                    "do_plots": True}
-
-    if not os.path.exists(f"./data/{test_parameters['run_name']}"):
-        os.mkdir(f"./data/{test_parameters['run_name']}")
-
-    if not os.path.exists(f"./plots/{test_parameters['run_name']}"):
-        os.mkdir(f"./plots/{test_parameters['run_name']}")
-
-    print('Copying log file from Hamilton')
-    os.system(f"scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{test_parameters["run_name"]}/log.csv ./data/{test_parameters["run_name"]}/")
-
-    def evaluate_theta(theta, snap_subset, iteration):
-        """
-        Will carry on even if there are errors.
-        """
-
-        skillscores = fcast.model_functions.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration)
-
-        minimiser = np.mean(skillscores)
-        return minimiser
-
-    def load_directory():
-        directory_fname = f'./data/{test_parameters["run_name"]}/log.csv'
-        if os.path.exists(directory_fname):
-            #This directory already exists. Hopefully with proper header information etc
-            directory_data = []
-            with open(directory_fname, "r", encoding="utf-8") as f:
-                data = csv.reader(f)
-                for row in data:
-                    directory_data.append(row)
+            is_pfss = False
+            model = "outflow"
+        if (batch_id%2) == 0:
+            rss = 2.5
         else:
-            print(f'Directory data not found with fname {directory_fname}')
+            rss = 5.0
+        if (batch_id//4) == 0:
+            source = "gong"
+        else:
+            source = "hmi"
 
-        #Run through loaded directory and deduce information
-        scores = []
-        sigmas = []
-        thetas = []
-        for row in directory_data[1:]:
-            scores.append(float(row[1]))
-            sigmas.append(float(row[2]))
-            thetas.append(row[3:])
+        run_name = run_names[batch_id]
 
-        scores = np.array(scores)
-        sigmas = np.array(sigmas)
-        thetas = np.array(thetas, dtype='float')
+        #Have a flag to plot the default parameters if just 'wsa' is selected
 
-        return scores, sigmas, thetas
+        if batch_base == "wsa":
+            print('Using default wsa parameters as a reference for later')
+            batch_name = f"wsa_nocmes_{batch_id}"
+            velocity_type = "wsa"
 
-    scores, sigmas, thetas = load_directory()
+        else:
+            batch_name = f"{batch_base}_{batch_id}"
+            velocity_type = "wsa_scaled"
 
-    nthetas = np.shape(thetas)[0]
+        # batch_name = f"net_test_{batch_id}"
+        # velocity_type = "neural_net"
 
-    iteration = 0
-    print('Current theta', thetas[-1])
-    skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
+        nicetitle = f"{model}, rss = {rss}, source = {source}"
+        test_parameters = {"observation_time": obs_times,
+                        "base_name": run_names[batch_id],
+                        "run_name": batch_name,
+                        "model_type": model,
+                        "calculate_base_model": False,
+                        "overwrite_base_model": False,
+                        "calculate_huxt": True,
+                        "r_ss": rss,
+                        "WSA_type": "standard",
+                        "WSA_parameters": None,
+                        "data_source": source,
+                        "resolutions": [120,180,360],
+                        "r_hb": 21.5,
+                        "match_flag": False,
+                        "velocity_type": velocity_type,
+                        "spinup_time": 5,
+                        "forecast_length": 5,
+                        "verbose": True,
+                        "optimisation_type": "distribution",
+                        "do_plots": False}
 
-    dist1, dist2 = dists
+        if not os.path.exists(f"./data/{test_parameters['run_name']}"):
+            os.mkdir(f"./data/{test_parameters['run_name']}")
 
-    ax = axs1[plot_num//4, plot_num%4]
-    ax.plot(dist1)
-    ax.plot(dist2)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_title(nicetitle)
+        if not os.path.exists(f"./plots/{test_parameters['run_name']}"):
+            os.mkdir(f"./plots/{test_parameters['run_name']}")
 
-    plt.tight_layout()
-    plt.savefig('./plots/distributions_default_wsa.png')
+        print('Copying log file from Hamilton')
+        os.system(f"scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{test_parameters["run_name"]}/log.csv ./data/{test_parameters["run_name"]}/")
+
+        def evaluate_theta(theta, snap_subset, iteration):
+            """
+            Will carry on even if there are errors.
+            """
+
+            skillscores = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration)
+
+            minimiser = np.mean(skillscores)
+            return minimiser
+
+        def load_directory():
+            directory_fname = f'./data/{test_parameters["run_name"]}/log.csv'
+            print('Directory', directory_fname)
+            if os.path.exists(directory_fname):
+                #This directory already exists. Hopefully with proper header information etc
+                directory_data = []
+                with open(directory_fname, "r", encoding="utf-8") as f:
+                    data = csv.reader(f)
+                    for row in data:
+                        directory_data.append(row)
+            else:
+                print(f'Directory data not found with fname {directory_fname}')
+
+            #Run through loaded directory and deduce information
+            scores = []
+            sigmas = []
+            thetas = []
+            for row in directory_data[1:]:
+                scores.append(float(row[1]))
+                sigmas.append(float(row[2]))
+                thetas.append(row[3:])
+
+            scores = np.array(scores)
+            sigmas = np.array(sigmas)
+            thetas = np.array(thetas, dtype='float')
+
+            return scores, sigmas, thetas
+
+        try:
+            scores, sigmas, thetas = load_directory()
+        except:
+            print('Directory not found...')
+            continue
+
+        if find_min_sigma:   #Use the parameters at the point at which the solution appears to have converged the best
+            cut = 60
+            cut = min(len(scores), cut - 1)
+            scores = scores[-cut:]
+            min_index = int(np.where(scores == np.min(scores))[0][0] + len(thetas) - cut)
+            print('Min sigma location and overall length:', min_index, len(thetas))
+            theta = thetas[min_index]
+        else:
+            theta = thetas[-1]
+
+        nthetas = np.shape(thetas)[0]
+
+        iteration = 0
+        print('Current theta', theta)
+
+        if batch_base == "wsa":
+            skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
+        else:
+            skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
+
+        dist1, dist2 = dists
+
+        ax = axs1[plot_num//4, plot_num%4]
+        ax.plot(dist1)
+        ax.plot(dist2)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title(nicetitle)
+        plt.suptitle(title1)
+
+        plt.tight_layout()
+
+        plt.savefig(f'./plots/distributions_{batch_base}.png')
+
+

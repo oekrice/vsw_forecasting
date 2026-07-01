@@ -31,7 +31,7 @@ else:
 
 nsamples = 50
 extend_current_run = True
-use_neural_net = False
+use_neural_net = True
 
 if not use_neural_net:
     theta_size = 8
@@ -72,7 +72,7 @@ else:
 run_name = run_names[batch_id]
 
 if use_neural_net:
-    batch_name = f"optimise_run_net_{batch_id}"
+    batch_name = f"net_test_{batch_id}"
     velocity_type = "neural_net"
 else:
     batch_name = f"corr_nocmes_{batch_id}"

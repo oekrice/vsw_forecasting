@@ -25,7 +25,7 @@ parameter_sources = ["raw", "wsa_nocmes", "rms_nocmes"]
 scale_sources = ["raw", "ss", "rms", "dist", "ss_raw"]
 
 for a in range(2):
-    bs = [0,2,3]
+    bs = [0,1,2,3,4]
     for b in bs:
 
         #Pick the desired combination here. The titles above should be kept consistent, but can obviously be added to if desired.
@@ -94,6 +94,7 @@ for a in range(2):
                 root = "WSA Optimised for Speed Distributions"
             elif parameter_source == "rms_nocmes":
                 root = "WSA Optimised for RMS"
+
             else:
                 raise Exception("Parameter source not regonised")
 
@@ -107,11 +108,13 @@ for a in range(2):
             if scale_source == "raw":
                 end = ""
             elif scale_source == "ss":
-                end = "Scaled for Skill Score"
+                end = "Scaled for Persistence Skill Score"
             elif scale_source == "rms":
                 end = "Scaled for RMS"
             elif scale_source == "dist":
                 end = "Scaled for Speed Distributions"
+            elif scale_source == "ss_raw":
+                end = "Scaled for Raw Skill Score"
             else:
                 raise Exception("Scale source not regonised")
 

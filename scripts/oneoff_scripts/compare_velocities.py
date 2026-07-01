@@ -33,16 +33,16 @@ use_neural_net = False
 #Can specify file name to look up WSA parameters? Yeah, probably.
 run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
-base_selection = 2
-batch_bases = ["wsa", "wsa_nocmes", "rms_nocmes"]
-titles1 = ["Default WSA", "Velocities Optimised for Distributions", "Velocities Optimised for RMS"]
+base_selection = 3
+batch_bases = ["wsa", "wsa_nocmes", "rms_nocmes", "corr_nocmes"]
+titles1 = ["Default WSA", "Velocities Optimised for Distributions", "Velocities Optimised for RMS", "Velocities Optimised for Correlation"]
 
 batch_base = batch_bases[base_selection]
 title1 = titles1[base_selection]
 
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
-for plot_num, batch_id in enumerate(np.arange(8)):
+for plot_num, batch_id in enumerate(np.arange(0,8)):
 
 
     #Get the model setup depending on the batch numbers
@@ -74,6 +74,8 @@ for plot_num, batch_id in enumerate(np.arange(8)):
         batch_name = f"{batch_base}_{batch_id}"
         velocity_type = "wsa_scaled"
 
+    # batch_name = f"net_test_{batch_id}"
+    # velocity_type = "neural_net"
 
     nicetitle = f"{model}, rss = {rss}, source = {source}"
     test_parameters = {"observation_time": obs_times,
@@ -95,7 +97,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
                     "forecast_length": 5,
                     "verbose": True,
                     "optimisation_type": "distribution",
-                    "do_plots": True}
+                    "do_plots": False}
 
     if not os.path.exists(f"./data/{test_parameters['run_name']}"):
         os.mkdir(f"./data/{test_parameters['run_name']}")
@@ -150,12 +152,8 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
 
     if find_min_sigma:   #Use the parameters at the point at which the solution appears to have converged the best
-        cut = 60
-        cut = min(len(scores), cut - 1)
-        scores = scores[-cut:]
-        min_index = int(np.where(scores == np.min(scores))[0][0] + len(thetas) - cut)
-        print('Min sigma location and overall length:', min_index, len(thetas))
-        theta = thetas[min_index]
+        sigma_index = fcast.stats_functions.find_ideal_sigma_index(sigmas)
+        theta = thetas[-1]
     else:
         theta = thetas[-1]
 
@@ -176,7 +174,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
     vmesh, vr = cmaps
 
     ax = axs1[plot_num//4, plot_num%4]
-    ax.pcolormesh(vr[30:-30,:], vmax=1000)
+    ax.pcolormesh(vr[30:-30,:], vmax=800, vmin=200)
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_title(nicetitle)

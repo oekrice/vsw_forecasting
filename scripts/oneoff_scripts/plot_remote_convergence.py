@@ -40,7 +40,7 @@ snap_subset = np.array([0] + list(valid_snaps[:nsamples-1]))
 
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
-for plot_num, batch_id in enumerate(np.arange(8)):
+for plot_num, batch_id in enumerate(np.arange(7,8)):
 
     #Get the model setup depending on the batch numbers
     if (batch_id//2)%2 == 0:
@@ -63,7 +63,7 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     test_parameters = {"observation_time": obs_times,
                     "base_name": run_names[batch_id],
-                    "run_name": f"rms_nocmes_{batch_id}",
+                    "run_name": f"net_test_{batch_id}",
                     "model_type": model,
                     "calculate_base_model": False,
                     "overwrite_base_model": False,
@@ -130,9 +130,13 @@ for plot_num, batch_id in enumerate(np.arange(8)):
 
     scores, sigmas, thetas = load_directory()
 
+    sigma_index = fcast.stats_functions.find_ideal_sigma_index(sigmas)
     fig, axs = plt.subplots(2, figsize = (10,7))
     axs[0].plot(scores)
+    axs[0].scatter([sigma_index],[scores[sigma_index]], c = 'red')
     axs[1].plot(sigmas)
-    plt.savefig('./plots/converges/converge%d.png' % (batch_id))
+    axs[1].set_ylim(0.0,0.5)
+    axs[1].scatter([sigma_index],[sigmas[sigma_index]], c = 'red')
+    plt.savefig(f'./plots/converges/converge_{test_parameters["run_name"]}.png' % (batch_id))
     plt.close()
 
