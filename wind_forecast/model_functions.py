@@ -165,10 +165,12 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
                 skillscores.append(dtw_distance)
         elif run_parameters["optimisation_type"] == "least_squares":
 
-            # times_avg, speeds_avg = get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence = 24, verbose=False)
-            # times_ref_avg, speeds_ref_avg = get_average_speeds(alltimes, allspeeds_ref, spinup_time = 0, cadence = 24, verbose=False)
 
             if save_speeds:
+
+                times_avg, speeds_avg = get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence = 24, verbose=False)
+                times_ref_avg, speeds_ref_avg = get_average_speeds(alltimes, allspeeds_ref, spinup_time = 0, cadence = 24, verbose=False)
+
                 if run_parameters["verbose"] == True:
                     print('Saving out raw speed data...')
 

@@ -74,8 +74,9 @@ for plot_num, batch_id in enumerate(np.arange(0,8)):
         batch_name = f"{batch_base}_{batch_id}"
         velocity_type = "wsa_scaled"
 
-    # batch_name = f"net_test_{batch_id}"
-    # velocity_type = "neural_net"
+    batch_name = f"net_test_{batch_id}"
+    velocity_type = "neural_net"
+    batch_base = "net_test"
 
     nicetitle = f"{model}, rss = {rss}, source = {source}"
     test_parameters = {"observation_time": obs_times,

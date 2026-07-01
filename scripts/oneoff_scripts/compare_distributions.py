@@ -164,12 +164,8 @@ for base_selection in range(4):
             continue
 
         if find_min_sigma:   #Use the parameters at the point at which the solution appears to have converged the best
-            cut = 60
-            cut = min(len(scores), cut - 1)
-            scores = scores[-cut:]
-            min_index = int(np.where(scores == np.min(scores))[0][0] + len(thetas) - cut)
-            print('Min sigma location and overall length:', min_index, len(thetas))
-            theta = thetas[min_index]
+            sigma_index = fcast.stats_functions.find_ideal_sigma_index(sigmas)
+            theta = thetas[-1]
         else:
             theta = thetas[-1]
 
@@ -179,9 +175,9 @@ for base_selection in range(4):
         print('Current theta', theta)
 
         if batch_base == "wsa":
-            skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=None, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
+            skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=None, snap_subset=valid_snaps, iteration=iteration, output_distributions=True)
         else:
-            skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, output_distributions=True)
+            skillscores, dists = fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=valid_snaps, iteration=iteration, output_distributions=True)
 
         dist1, dist2 = dists
 
@@ -196,5 +192,3 @@ for base_selection in range(4):
         plt.tight_layout()
 
         plt.savefig(f'./plots/distributions_{batch_base}.png')
-
-
