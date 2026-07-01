@@ -36,12 +36,11 @@ use_neural_net = False
 
 nsamples = 250
 valid_snaps = np.arange(len(obs_times))
-random.shuffle(valid_snaps)
-snap_subset = np.array([0] + list(valid_snaps[:nsamples-1]))
-
 cme_mask = fcast.data_functions.get_cme_times(obs_times)
 valid_times = np.where(cme_mask == 0)[0]
 valid_snaps = valid_snaps[valid_times]
+random.shuffle(valid_snaps)
+valid_snaps = valid_snaps[:nsamples]
 
 run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
@@ -119,15 +118,6 @@ for base_selection in range(4):
         print('Copying log file from Hamilton')
         os.system(f"scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{test_parameters["run_name"]}/log.csv ./data/{test_parameters["run_name"]}/")
 
-        def evaluate_theta(theta, snap_subset, iteration):
-            """
-            Will carry on even if there are errors.
-            """
-
-            skillscores = fcast.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration)
-
-            minimiser = np.mean(skillscores)
-            return minimiser
 
         def load_directory():
             directory_fname = f'./data/{test_parameters["run_name"]}/log.csv'
