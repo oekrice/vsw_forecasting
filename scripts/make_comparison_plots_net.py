@@ -21,12 +21,12 @@ from scipy.ndimage import gaussian_filter1d
 from datetime import datetime, timedelta
 from scipy.stats import pearsonr
 
-parameter_sources = ["raw", "wsa_nocmes", "rms_nocmes", "corr_nocmes"]
+parameter_sources = ["net_test"]
 scale_sources = ["raw", "ss", "rms", "dist", "ss_raw"]
 
-for a in range(4):
-    bs = [0,1,2,3,4]
-    #bs = [0,2,3]
+for a in range(1):
+    #bs = [0,1,2,3,4]
+    bs = [0]
     for b in bs:
 
         #Pick the desired combination here. The titles above should be kept consistent, but can obviously be added to if desired.
@@ -36,7 +36,7 @@ for a in range(4):
         parameter_source = parameter_sources[parameter_select]
         scale_source = scale_sources[scale_select]
 
-        parameter_shortnames = ["raw", "dist", "rms", "corr"]
+        parameter_shortnames = ["net"]
         parameter_shortname = parameter_shortnames[parameter_select]
 
 
@@ -89,16 +89,7 @@ for a in range(4):
             return nicetitle
 
         def make_suptitle(parameter_source, scale_source):
-            if parameter_source == "raw":
-                root = "Default WSA Parameters"
-            elif parameter_source == "wsa_nocmes":
-                root = "WSA Optimised for Speed Distributions"
-            elif parameter_source == "rms_nocmes":
-                root = "WSA Optimised for RMS"
-            elif parameter_source == "corr_nocmes":
-                root = "WSA Optimised for Correlation"
-            else:
-                raise Exception("Parameter source not regonised")
+            root = "net_test"
 
             if scale_source == "raw":
                 root += ""
@@ -132,16 +123,16 @@ for a in range(4):
             for i in range(8):
                 batch_names.append(f'{parameter_source}_{i}')
 
-            omni_fname = f'./data/raw_speeds/wsa_nocmes_0_wsa_speeds_ref.txt'
+            omni_fname = f'./data/raw_speeds/net_test_7_neural_net_speeds_ref.txt'
             fig = plt.figure(figsize=(12,6))
             for i, batch_name in enumerate(batch_names):
 
                 #Hopefully all things should be arranged nicely time-wise, but do need to check as much
                 if parameter_source == "raw":
-                    data_fname = f'./data/raw_speeds/wsa_nocmes_{i}_wsa_speeds.txt'
+                    data_fname = f'./data/raw_speeds/wsa_nocmes_{i}_neural_net_speeds.txt'
 
                 else:
-                    data_fname = f'./data/raw_speeds/{batch_name}_wsa_scaled_speeds.txt'
+                    data_fname = f'./data/raw_speeds/{batch_name}_neural_net_speeds.txt'
 
                 if not(os.path.exists(omni_fname) and os.path.exists(data_fname)):
                     print('Files not found...', omni_fname, data_fname)
@@ -151,9 +142,9 @@ for a in range(4):
                 omni = np.loadtxt(omni_fname, delimiter = ',')
 
                 if parameter_source == "raw":
-                    timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_{i}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+                    timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_{i}_neural_net_times.txt', dtype='datetime64[s]', delimiter = ',')
                 else:
-                    timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+                    timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_neural_net_times.txt', dtype='datetime64[s]', delimiter = ',')
 
                 "Always filter for CMEs, but save this data separately"
                 cme_mask = fcast.data_functions.get_cme_times(timeseries)
@@ -191,7 +182,7 @@ for a in range(4):
                 rms = np.sqrt(np.nanmean((wsa_filtered - omni)**2))
 
                 # print('Standard STD for ', batch_name, np.sqrt(np.nanmean((wsa-omni_ref_0)**2)))
-                # print('Optimised STD for', batch_name, np.sqrt(np.nanmean((optimised_wsa-omni_ref_1)**2)))
+                # print('Optimised STD for', batch_name, np.sqrt(np.nanmean((optimised_neural_net-omni_ref_1)**2)))
                 plt.plot(time_slices, diff_slices, label = f'{make_nicetitle(i)}, rms = {rms:.0f}km/s')
 
             plt.legend(fontsize=10)
@@ -209,17 +200,17 @@ for a in range(4):
             for i in range(8):
                 batch_names.append(f'{parameter_source}_{i}')
 
-            omni_fname = f'./data/raw_speeds/wsa_nocmes_0_wsa_speeds_ref.txt'
+            omni_fname = f'./data/raw_speeds/net_test_7_neural_net_speeds_ref.txt'
             fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
             for i, batch_name in enumerate(batch_names):
 
                 #Hopefully all things should be arranged nicely time-wise, but do need to check as much
                 if parameter_source == "raw":
-                    data_fname = f'./data/raw_speeds/wsa_nocmes_{i}_wsa_speeds.txt'
+                    data_fname = f'./data/raw_speeds/wsa_nocmes_{i}_neural_net_speeds.txt'
 
                 else:
-                    data_fname = f'./data/raw_speeds/{batch_name}_wsa_scaled_speeds.txt'
+                    data_fname = f'./data/raw_speeds/{batch_name}_neural_net_speeds.txt'
 
                 if not(os.path.exists(omni_fname) and os.path.exists(data_fname)):
                     print('Files not found...', omni_fname, data_fname)
@@ -229,9 +220,9 @@ for a in range(4):
                 omni = np.loadtxt(omni_fname, delimiter = ',')
 
                 if parameter_source == "raw":
-                    timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_{i}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+                    timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_{i}_neural_net_times.txt', dtype='datetime64[s]', delimiter = ',')
                 else:
-                    timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+                    timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_neural_net_times.txt', dtype='datetime64[s]', delimiter = ',')
 
                 "Always filter for CMEs, but save this data separately"
                 cme_mask = fcast.data_functions.get_cme_times(timeseries)
@@ -269,17 +260,17 @@ for a in range(4):
                 rms = np.sqrt(np.nanmean((wsa_filtered - omni)**2))
 
                 nbins = 101
-                hist_wsa, _ = np.histogram(wsa_filtered, bins=nbins, range=(0.0,1000.0))
+                hist_neural_net, _ = np.histogram(wsa_filtered, bins=nbins, range=(0.0,1000.0))
                 hist_ref, _ = np.histogram(omni_filtered, bins=nbins, range=(0.0,1000.0))
 
-                hist_wsa = hist_wsa/np.sum(hist_wsa)
+                hist_neural_net = hist_neural_net/np.sum(hist_neural_net)
                 hist_ref = hist_ref/np.sum(hist_ref)
-                distance = np.sum((hist_wsa - hist_ref)**2)
+                distance = np.sum((hist_neural_net - hist_ref)**2)
 
                 print('Histogram Distance:', distance)
 
                 ax = axs1[i//4, i%4]
-                ax.plot(hist_wsa)
+                ax.plot(hist_neural_net)
                 ax.plot(hist_ref, c = 'black', linestyle = 'dashed')
                 ax.set_xticks([])
                 ax.set_yticks([])
@@ -302,16 +293,16 @@ for a in range(4):
             for i in range(8):
                 batch_names.append(f'{parameter_source}_{i}')
 
-            omni_fname = f'./data/raw_speeds/wsa_nocmes_0_wsa_speeds_ref.txt'
+            omni_fname = f'./data/raw_speeds/net_test_7_neural_net_speeds_ref.txt'
             fig = plt.figure(figsize=(12,6))
             for i, batch_name in enumerate(batch_names):
 
                 #Hopefully all things should be arranged nicely time-wise, but do need to check as much
                 if parameter_source == "raw":
-                    data_fname = f'./data/raw_speeds/wsa_nocmes_{i}_wsa_speeds.txt'
+                    data_fname = f'./data/raw_speeds/wsa_nocmes_{i}_neural_net_speeds.txt'
 
                 else:
-                    data_fname = f'./data/raw_speeds/{batch_name}_wsa_scaled_speeds.txt'
+                    data_fname = f'./data/raw_speeds/{batch_name}_neural_net_speeds.txt'
 
                 if not(os.path.exists(omni_fname) and os.path.exists(data_fname)):
                     print('Files not found...', omni_fname, data_fname)
@@ -321,9 +312,9 @@ for a in range(4):
                 omni = np.loadtxt(omni_fname, delimiter = ',')
 
                 if parameter_source == "raw":
-                    timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_{i}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+                    timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_{i}_neural_net_times.txt', dtype='datetime64[s]', delimiter = ',')
                 else:
-                    timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+                    timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_neural_net_times.txt', dtype='datetime64[s]', delimiter = ',')
 
                 "Always filter for CMEs, but save this data separately"
                 cme_mask = fcast.data_functions.get_cme_times(timeseries)
@@ -370,16 +361,16 @@ for a in range(4):
             for i in range(8):
                 batch_names.append(f'{parameter_source}_{i}')
 
-            omni_fname = f'./data/raw_speeds/wsa_nocmes_0_wsa_speeds_ref.txt'
+            omni_fname = f'./data/raw_speeds/net_test_7_neural_net_speeds_ref.txt'
             fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
             for i, batch_name in enumerate(batch_names):
 
                 #Hopefully all things should be arranged nicely time-wise, but do need to check as much
                 if parameter_source == "raw":
-                    data_fname = f'./data/raw_speeds/wsa_nocmes_{i}_wsa_speeds.txt'
+                    data_fname = f'./data/raw_speeds/wsa_nocmes_{i}_neural_net_speeds.txt'
 
                 else:
-                    data_fname = f'./data/raw_speeds/{batch_name}_wsa_scaled_speeds.txt'
+                    data_fname = f'./data/raw_speeds/{batch_name}_neural_net_speeds.txt'
 
                 if not(os.path.exists(omni_fname) and os.path.exists(data_fname)):
                     print('Files not found...', omni_fname, data_fname)
@@ -389,9 +380,9 @@ for a in range(4):
                 omni = np.loadtxt(omni_fname, delimiter = ',')
 
                 if parameter_source == "raw":
-                    timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_{i}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+                    timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_{i}_neural_net_times.txt', dtype='datetime64[s]', delimiter = ',')
                 else:
-                    timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')
+                    timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_neural_net_times.txt', dtype='datetime64[s]', delimiter = ',')
 
                 "Always filter for CMEs, but save this data separately"
                 cme_mask = fcast.data_functions.get_cme_times(timeseries)

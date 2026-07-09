@@ -214,6 +214,37 @@ class VelocityNet():
 
         return
 
+def find_data_colourmap(xdata, ydata, npoints, xmin=None, xmax=None, ymin=None, ymax=None):
+    """
+    This is probably a thing I'd like to do several times, so I'll outsource it to here
+    Given a pair of datasets, output a colourmap of the two of them, to produce a graph which may be more informative than a scatter plot
+    """
+    if xmin is None:
+        xmin = np.nanmin(xdata)
+    if ymin is None:
+        ymin = np.nanmin(ydata)
+    if xmax is None:
+        xmax = np.nanmax(xdata)
+    if ymax is None:
+        ymax = np.nanmax(ydata)
+    xs = np.linspace(xmin-1e-6, xmax+1e-6, npoints+1)
+    ys = np.linspace(ymin-1e-6, ymax+1e-6, npoints+1)
+
+    if len(xdata) != len(ydata):
+        raise Exception('Data sets are not the same length. Aborting')
+
+    colormesh = np.zeros((len(xs)-1, len(ys) - 1))
+    for i in range(len(xdata)):
+
+        x_index = np.searchsorted(xs, xdata[i]) - 1
+        y_index = np.searchsorted(ys, ydata[i]) - 1
+        try:
+            colormesh[x_index, y_index] += 1  #Don't really care if they're out of bounds
+        except:
+            pass
+    return colormesh, xs, ys
+
+
 def find_ideal_sigma_index(sigmas, threshold=0.5, cutoff=50):
     """
     There has become too much inconsitency in the ways that the best sigma is calculated, so probably best just put it in this function

@@ -22,13 +22,12 @@ def get_PFSS_maps_local(br_map, vr_map, phi, cotheta):
 
     return vr_map, vr_longs, vr_lats, br_map, br_longs, br_lats
 
-def get_cme_times(obs_times, cme_fname='./data/shared_data/cme_list.csv', cme_time_window_days=5, also_filter_persistence=False, persistence_cadence=27.7):
+def get_cme_times(obs_times, cme_fname='./data/shared_data/cme_list.csv', cme_time_window_days=2, also_filter_persistence=True, persistence_cadence=27.27):
     """
     Given a set of valid snap times, determine whether these correspond to CME arrivals (up to the 5 day bodge period).
     This is more complicated than it seems!
     Don't use the precomputed OMNI file as this is quick enough just to do again. Produces a mask for the allowable subset of times to sample for an optimisation.
     """
-    print('Filtering for CMEs')
     if os.path.exists(cme_fname):
         cme_data = []
         with open(cme_fname, "r", encoding="utf-8") as f:
@@ -63,6 +62,7 @@ def get_cme_times(obs_times, cme_fname='./data/shared_data/cme_list.csv', cme_ti
             if obs_times[i] > cme_end:
                 break
             i += 1
+
     if also_filter_persistence:
         cme_persist_flags = np.zeros(len(obs_times))
 

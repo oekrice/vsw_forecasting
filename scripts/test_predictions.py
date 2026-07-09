@@ -38,7 +38,7 @@ n_cores = 8
 plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
 plot_continuous = True   #Will wait for outputs and keep up (if possible)
 find_min_sigma = True
-use_neural_net = False
+use_neural_net = True
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -86,8 +86,10 @@ for plot_num, batch_id in enumerate(np.arange(batch_select,batch_select+1)):
         batch_name = f"{batch_base}_{batch_id}"
         velocity_type = "wsa_scaled"
 
-    # batch_name = f"net_test_{batch_id}"
-    # velocity_type = "neural_net"
+    if use_neural_net:
+        batch_name = f"net_test_{batch_id}"
+        velocity_type = "neural_net"
+        batch_base = "net_test"
 
     nicetitle = f"{model}, rss = {rss}, source = {source}"
     test_parameters = {"observation_time": obs_times,
