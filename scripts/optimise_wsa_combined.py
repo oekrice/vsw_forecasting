@@ -22,7 +22,7 @@ import matplotlib
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
-test_single =  True
+test_single =  False
 
 if "SLURM_JOB_ID" in os.environ:
     n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
@@ -31,8 +31,8 @@ else:
     print('Running locally (not on slurm)')
     n_cores = 8
 
-nsamples = 5
-extend_current_run = True
+nsamples = 50
+extend_current_run = False
 use_neural_net = False
 
 if not use_neural_net:
@@ -77,7 +77,7 @@ if use_neural_net:
     batch_name = f"net_test_{batch_id}"
     velocity_type = "neural_net"
 else:
-    batch_name = f"combined_{batch_id}"
+    batch_name = f"combined_static_{batch_id}"
     velocity_type = "wsa_scaled"
 
 test_parameters = {"observation_time": obs_times,
@@ -97,7 +97,7 @@ test_parameters = {"observation_time": obs_times,
                 "velocity_type": velocity_type,
                 "spinup_time": 5,
                 "forecast_length": 5,
-                "verbose": True,
+                "verbose": False,
                 "optimisation_type": "correlation",
                 "do_plots": False,
                 "filter_cmes": True}
@@ -230,8 +230,6 @@ def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0
             allspeeds.append(model_speeds)
             allspeeds_ref.append(omni_speeds)
 
-
-        plt.show()
         #Combine into one set of values, mainly consisting of NaNs (which is what we want really)
         times_avg, wsa = wf.stats_functions.get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence = 24, verbose=False)
         _, omni = wf.stats_functions.get_average_speeds(alltimes, allspeeds_ref, spinup_time = 0, cadence = 24, verbose=False)
@@ -265,115 +263,66 @@ def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0
             combined_metric = omni_shift_filtered + factor*wsa_diff
             nas = np.logical_or(np.isnan(combined_metric), np.isnan(omni_filtered))
             r, _ = pearsonr(combined_metric[~nas], omni_filtered[~nas])
-            return 1.0-r
+            rms = np.sqrt(np.nanmean((combined_metric[~nas] - omni_filtered[~nas])**2))
+            ref_r, _ = pearsonr(omni_shift_filtered[~nas], omni_filtered[~nas])
+            ref_rms = np.sqrt(np.nanmean((omni_shift_filtered[~nas] - omni_filtered[~nas])**2))
+
+            correlation_improvement = (1.0-r)/(1.0-ref_r)
+            rms_improvement = rms/ref_rms
+
+            if correlation_improvement >= 1.0:
+                #Introduce a harsh penalty for getting worse. Needs to be continuous though.
+                correlation_improvement = correlation_improvement + 10*(correlation_improvement - 1.0)
+            if rms_improvement >= 1.0:
+                rms_improvement = rms_improvement + 10*(rms_improvement - 1.0)
+
+
+            res = np.sqrt(correlation_improvement*rms_improvement)
+
+            #print('r/reference, rms/reference. result', r, ref_r, rms, ref_rms, res)
+
+            return res
 
         wsa_diff = wsa_filtered - wsa_shift_filtered   #Difference in WSA prediction since the last month
 
-        plt.plot(times_avg, wsa_shift_filtered)
-        plt.plot(times_avg, omni_shift_filtered)
 
-        plt.plot(times_avg, wsa_filtered)
-        plt.plot(times_avg, omni_filtered)
-
-        optimum_factor = minimize(check_combination_factor, x0 = 1.0).x
+        optimum_factor = 1.0# minimize(check_combination_factor, x0 = 1.0).x
 
         combined_metric = omni_shift_filtered + optimum_factor*wsa_diff
         nas = np.logical_or(np.isnan(combined_metric), np.isnan(omni_filtered))
         bestr, _ = pearsonr(combined_metric[~nas], omni_filtered[~nas])
+        best_rms = np.sqrt(np.nanmean((combined_metric[~nas] - omni_filtered[~nas])**2))
 
         ref_r, _ = pearsonr(omni_shift_filtered[~nas], omni_filtered[~nas])
-        print('Optimum factor and r/reference', optimum_factor, bestr, ref_r)
-        combined_metric = omni_shift_filtered + optimum_factor*wsa_diff
+        ref_rms = np.sqrt(np.nanmean((omni_shift_filtered[~nas] - omni_filtered[~nas])**2))
 
-        plt.plot(times_avg, combined_metric, c = 'black')
+        print('Optimum factor and r/reference, rms/reference', optimum_factor, bestr, ref_r, best_rms, ref_rms)
 
-        plt.show()
+        correlation_improvement = (1.0-bestr)/(1.0-ref_r)
+        rms_improvement = best_rms/ref_rms
 
-        return 1.0 - bestr
+        if correlation_improvement >= 1.0:
+            #Introduce a harsh penalty for getting worse. Needs to be continuous though.
+            correlation_improvement = correlation_improvement + 10*(correlation_improvement - 1.0)
+        if rms_improvement >= 1.0:
+            rms_improvement = rms_improvement + 10*(rms_improvement - 1.0)
 
-        #     if run_parameters["do_plots"] and si == 0:
-        #         import matplotlib.pyplot as plt
+
+        res = np.sqrt(correlation_improvement*rms_improvement)
+
+        #print('Both improvements', correlation_improvement, rms_improvement)
+
+        # plt.plot(times_avg, wsa_shift_filtered)
+        # plt.plot(times_avg, omni_shift_filtered)
         #
-        #         if not os.path.exists('plots'):
-        #             os.mkdir('plots')
-        #         if not os.path.exists(f'plots/{run_parameters["run_name"]}'):
-        #             os.mkdir(f'plots/{run_parameters["run_name"]}')
+        # plt.plot(times_avg, wsa_filtered)
+        # plt.plot(times_avg, omni_filtered)
         #
-        #         fig = plt.figure(figsize=(10,7))
-        #         plt.plot(omni_times, model_speeds)
-        #         plt.plot(omni_times, omni_speeds)
-        #         #plt.title(f'Distance metric: {skillscores[-1]}')
-        #         plt.savefig('./plots/%s/timeseries_%05d.png' % (run_parameters["run_name"], iteration))
-        #         print(f'Plot saved to {'./plots/%s/timeseries_%05d.png' % (run_parameters["run_name"], iteration)}')
-        #         #plt.show()
-        #         plt.close()
+        # plt.plot(times_avg, combined_metric, c = 'black')
         #
-        # if run_parameters["optimisation_type"] == "dtw":
-        #     from dtaidistance import dtw
-        #
-        #     #For DTW, need to compare each set individually, which I concede is a bit of a pain.
-        #     for si in range(len(allspeeds)):
-        #         omni_speeds = allspeeds_ref[si]
-        #         model_speeds = allspeeds[si]
-        #         dtw_distance = dtw.distance(omni_speeds, model_speeds)
-        #         skillscores.append(dtw_distance)
-        # elif run_parameters["optimisation_type"] == "least_squares":
-        #
-        #
-        #     if save_speeds:
-        #
-        #         times_avg, speeds_avg = get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence = 24, verbose=False)
-        #         times_ref_avg, speeds_ref_avg = get_average_speeds(alltimes, allspeeds_ref, spinup_time = 0, cadence = 24, verbose=False)
-        #
-        #         if run_parameters["verbose"] == True:
-        #             print('Saving out raw speed data...')
-        #
-        #         times_avg = np.array(times_avg, dtype='datetime64[s]')
-        #         times_ref_avg = np.array(times_ref_avg, dtype='datetime64[s]')
-        #         #Save out the speeds to a normal txt file, so analysis on them is easy. Do need all the information though.
-        #         if not os.path.exists('./data/raw_speeds/'):
-        #             os.mkdir('./data/raw_speeds/')
-        #         np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds.txt', speeds_avg, delimiter = ',')
-        #         np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_speeds_ref.txt', speeds_ref_avg, delimiter = ',')
-        #         np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_times.txt', times_avg, fmt='%s', delimiter = ',')
-        #         np.savetxt(f'./data/raw_speeds/{run_parameters["run_name"]}_{run_parameters["velocity_type"]}_times_ref.txt', times_ref_avg, fmt='%s', delimiter = ',')
-        #
-        #         #print('Overall maximum speed (and ref):', np.max(allspeeds), np.max(allspeeds_ref))
-        #
-        #         if run_parameters["verbose"] == True:
-        #             print(f'Raw speed data saved with root {run_parameters["run_name"]}_{run_parameters["velocity_type"]}')
-        #     speeds = np.concatenate(allspeeds)
-        #     speeds_ref = np.concatenate(allspeeds_ref)
-        #
-        #     leastsquares_distance = np.sqrt(np.nanmean((speeds - speeds_ref)**2))
-        #     skillscores.append(leastsquares_distance)
-        # elif run_parameters["optimisation_type"] == "wasserstein":
-        #     speeds = np.concatenate(allspeeds)
-        #     speeds_ref = np.concatenate(allspeeds_ref)
-        #     wasserstein_distance = get_wasserstein_distance(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
-        #     skillscores.append(wasserstein_distance)
-        # elif run_parameters["optimisation_type"] == "distribution":
-        #     speeds = np.concatenate(allspeeds)
-        #     speeds_ref = np.concatenate(allspeeds_ref)
-        #     distribution_similarity, dists = get_distribution_similarity(speeds, speeds_ref, huxt_name=run_parameters["run_name"], iteration=iteration, doplots=run_parameters["do_plots"])
-        #     skillscores.append(distribution_similarity)
-        #     print('Overall maximum speed (and ref):', np.max(speeds), np.max(speeds_ref))
-        # elif run_parameters["optimisation_type"] == "correlation":
-        #     speeds = np.concatenate(allspeeds)
-        #     speeds_ref = np.concatenate(allspeeds_ref)
-        #     nas = np.logical_or(np.isnan(speeds), np.isnan(speeds_ref))
-        #     r, _ = pearsonr(speeds[~nas], speeds_ref[~nas])
-        #     skillscores.append(1.0 - r)
-        # else:
-        #     raise Exception('Optimisation type not recognised')
-        #
-        # if run_parameters["verbose"]:
-        #     print('Skillscore', skillscores[0])
-        #
-        # if not output_distributions:
-        #     return np.mean(skillscores)
-        # else:
-        #     return np.mean(skillscores), dists
+        # plt.show()
+
+        return res
 
 def evaluate_theta(theta, snap_subset):
     """
@@ -450,22 +399,31 @@ def run_cma_mp(n_cores=None):
             sigmas = []
             es = cma.CMAEvolutionStrategy(np.zeros(theta_size), 0.1, {'verb_disp': 1, 'popsize': popsize})
 
-    valid_snaps = np.arange(len(obs_times))#[1-cme_mask]
 
-    if test_parameters["filter_cmes"]:
+    valid_snaps = np.arange(len(obs_times))#[1-cme_mask]
+    filter_for_cmes = True
+    if filter_for_cmes:
         cme_mask = wf.data_functions.get_cme_times(obs_times)
+        cme_mask[:28] = 1  #Don't allow from the first 30 days, or will probably throw an error for persistence reasons.
         valid_times = np.where(cme_mask == 0)[0]
         valid_snaps = valid_snaps[valid_times]
+
     random.shuffle(valid_snaps)
 
-    snap_subset = valid_snaps[:nsamples].copy()
+    snap_subset = valid_snaps[:nsamples]
+    previous_snap_subset = snap_subset - 27
+
+    snap_subset = np.concatenate((snap_subset, previous_snap_subset))
 
     with mp.Pool(processes=n_cores) as pool:
         while not es.stop():
 
-            if (len(sigmas)%25) == 0:  #I've not really tested whether this makes any meaningful difference...
+            if (len(sigmas)%25) == 0:  #I've not really tested whether this makes any meaningful difference... I think it definitely does a bit. Just needs consistency
                 random.shuffle(valid_snaps)
-                snap_subset = valid_snaps[:nsamples].copy()
+                snap_subset = valid_snaps[:nsamples]
+                previous_snap_subset = snap_subset - 27
+
+                snap_subset = np.concatenate((snap_subset, previous_snap_subset))
 
             solutions = es.ask()
 
