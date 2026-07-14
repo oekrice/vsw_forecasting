@@ -16,6 +16,8 @@ from scipy.optimize import minimize
 from scipy.stats import pearsonr
 
 import matplotlib
+from scipy.stats import qmc
+
 #matplotlib.use('Agg')
 #This script should just run the base model and HuxT, at a low resolution.
 #Will automatically create a run ID with parameters encoded into the outputs, one hopes.
@@ -31,7 +33,7 @@ else:
     print('Running locally (not on slurm)')
     n_cores = 8
 
-nsamples = 2
+nsamples = 500
 extend_current_run = False
 use_neural_net = False
 
@@ -40,7 +42,7 @@ if not use_neural_net:
 else:
     theta_size = 41
 
-theta_size = 5   #New parameters to vary are: a, g, w, d, i. Overall vslow/vfast are constant as such scaling can be taken care of in THIS file, where it is nicely optimised.
+theta_size = 9   #New parameters to vary are: a, g, w, d, i. Overall vslow/vfast are constant as such scaling can be taken care of in THIS file, where it is nicely optimised.
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -78,7 +80,6 @@ run_name = run_names[batch_id]
 batch_name = f"combined_{batch_id}"
 velocity_type = "wsa_combined"   #To be used for the physics-informed parameter-changing. Just a select few of them. See if there are any mad patterns.
 
-
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],
                 "run_name": batch_name,
@@ -96,7 +97,7 @@ test_parameters = {"observation_time": obs_times,
                 "velocity_type": velocity_type,
                 "spinup_time": 5,
                 "forecast_length": 5,
-                "verbose": False,
+                "verbose": True,
                 "optimisation_type": "correlation",
                 "do_plots": False,
                 "filter_cmes": True}
@@ -309,32 +310,33 @@ def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0
 
         res = np.sqrt(correlation_improvement*rms_improvement)
 
-        #print('Both improvements', correlation_improvement, rms_improvement)
+        return res, bestr
 
-        # plt.plot(times_avg, wsa_shift_filtered)
-        # plt.plot(times_avg, omni_shift_filtered)
-        #
-        # plt.plot(times_avg, wsa_filtered)
-        # plt.plot(times_avg, omni_filtered)
-        #
-        # plt.plot(times_avg, combined_metric, c = 'black')
-        #
-        # plt.show()
-
-        return res
-
-def evaluate_theta(theta, snap_subset):
+def evaluate_theta(sample, snap_subset):
     """
     Will carry on even if there are errors.
     """
+    wsa_parameters = [285,910,2/9,1.0,0.8,2,2,3,1]
 
-    skillscores = run_model_combined(test_parameters, theta=theta, snap_subset=snap_subset)
+    sample_ranges = [[200,500],[500,1000],[0.1,0.5],[1.0,5.0],[1.0,5.0],[1.0,4.0],[1.0,1.5]]
+
+    wsa_parameters[0] = sample_ranges[0][0] + sample[0]*(sample_ranges[0][1] - sample_ranges[0][0])
+    wsa_parameters[1] = sample_ranges[1][0] + sample[1]*(sample_ranges[1][1] - sample_ranges[1][0])
+    wsa_parameters[2] = sample_ranges[2][0] + sample[2]*(sample_ranges[2][1] - sample_ranges[2][0])
+    wsa_parameters[5] = sample_ranges[3][0] + sample[3]*(sample_ranges[3][1] - sample_ranges[3][0])
+    wsa_parameters[6] = sample_ranges[4][0] + sample[4]*(sample_ranges[4][1] - sample_ranges[4][0])
+    wsa_parameters[7] = sample_ranges[5][0] + sample[5]*(sample_ranges[5][1] - sample_ranges[5][0])
+    wsa_parameters[8] = sample_ranges[6][0] + sample[6]*(sample_ranges[6][1] - sample_ranges[6][0])
+
+    print('WSA parameters', wsa_parameters)
+
+    skillscores, bestr = run_model_combined(test_parameters, theta=wsa_parameters, snap_subset=snap_subset)
 
     minimiser = np.mean(skillscores)
 
-    np.savetxt(f"./data/{test_parameters['run_name']}/start_theta.dat", [theta])
+    wf.data_functions.update_theta_record(test_parameters, minimiser, bestr, wsa_parameters)  #This keeps a record of which thetas are good, and the sigma at that time.
 
-    return minimiser
+    return minimiser, bestr
 
 def load_directory():
     directory_fname = f'./data/{test_parameters["run_name"]}/log.csv'
@@ -368,36 +370,9 @@ def run_cma_mp(n_cores=None):
     if n_cores is None:
         n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", mp.cpu_count()))
 
-    pool = mp.Pool(processes=n_cores)
-    best_loss = float("inf")
-    best_theta = None
 
-    popsize = n_cores
-    while popsize < 16:
-         popsize += n_cores
 
-    print('Ncores:', n_cores, 'Population size', popsize)
-
-    if not extend_current_run:
-        if os.path.exists(f'data/{test_parameters["run_name"]}/log.csv'):
-            os.remove(f'data/{test_parameters["run_name"]}/log.csv')
-
-        es = cma.CMAEvolutionStrategy(np.zeros(theta_size), 0.1, {'verb_disp': 1, 'popsize': popsize})
-        best_losses = []
-        sigmas = []
-
-    else:
-        if os.path.exists(f'data/{test_parameters["run_name"]}/log.csv'):
-            scores, sigmas, thetas = load_directory()
-            sigmas = list(sigmas)
-            best_losses = list(scores)
-            es = cma.CMAEvolutionStrategy(thetas[-1], sigmas[-1], {'verb_disp': 1, 'popsize': popsize})
-            print('Using existing run, initial conditions', thetas[-1], sigmas[-1])
-        else:
-            best_losses = []
-            sigmas = []
-            es = cma.CMAEvolutionStrategy(np.zeros(theta_size), 0.1, {'verb_disp': 1, 'popsize': popsize})
-
+    print('Ncores:', n_cores)
 
     valid_snaps = np.arange(len(obs_times))#[1-cme_mask]
     filter_for_cmes = True
@@ -414,59 +389,24 @@ def run_cma_mp(n_cores=None):
 
     snap_subset = np.concatenate((snap_subset, previous_snap_subset))
 
-    with mp.Pool(processes=n_cores) as pool:
-        while not es.stop():
+    #Establish hypercube parameters here. Follow the same as the Good Paper.
+    sampler = qmc.LatinHypercube(d=7)
+    sample = sampler.random(n=10000)
 
-            if (len(sigmas)%50) == 0:  #I've not really tested whether this makes any meaningful difference... I think it definitely does a bit. Just needs consistency
-                random.shuffle(valid_snaps)
-                snap_subset = valid_snaps[:nsamples]
-                previous_snap_subset = snap_subset - 27
+    # for i in range(len(sample)):
+    #     result, bestr = evaluate_theta(sample[i],snap_subset)
 
-                snap_subset = np.concatenate((snap_subset, previous_snap_subset))
-
-            solutions = es.ask()
+    for lump in range(len(sample)//n_cores):
+        print(sample[lump*n_cores:(lump+1)*n_cores])
+        with mp.Pool(processes=n_cores) as pool:
+            losses = []
 
             results = [
                 pool.apply_async(evaluate_theta, (theta,snap_subset))
-                for theta in solutions
+                for theta in sample[lump*n_cores:(lump+1)*n_cores]
             ]
-
-            losses = []
             for r in results:
-                try:
-                    losses.append(r.get(timeout=1000.0))
-                except Exception:
-                    losses.append(1e12)
-
-            es.tell(solutions, losses)
-            best_loss = 1e6
-            best_theta = None
-            for theta, loss in zip(solutions, losses):
-                print("Current score", loss)
-
-                if loss < best_loss:
-                    best_loss = loss
-                    best_theta = theta.copy()
-
-            #Run the model with the best ones to do a plot of progress?
-            #fcast.run_model(test_parameters, best_theta, iteration = len(best_losses), snap_subset=[0])
-
-            best_losses.append(best_loss)
-            sigmas.append(es.sigma)
-
-            wf.data_functions.update_theta_record(test_parameters, best_loss, es.sigma, best_theta)  #This keeps a record of which thetas are good, and the sigma at that time.
-
-            if not os.path.exists('plots'):
-                os.mkdir('plots')
-            if not os.path.exists(f'plots/{test_parameters["run_name"]}'):
-                os.mkdir(f'plots/{test_parameters["run_name"]}')
-
-            if False:
-                fig, axs = plt.subplots(2, figsize = (10,7))
-                axs[0].plot(best_losses)
-                axs[1].plot(sigmas)
-                plt.savefig('./plots/%s/converge.png' % test_parameters["run_name"])
-                plt.close()
+                losses.append(r.get(timeout=1000.0))
 
     return
 
@@ -491,6 +431,6 @@ else:
 
     snap_subset = np.concatenate((snap_subset, previous_snap_subset))
 
-    skillscore = evaluate_theta(np.zeros(theta_size), snap_subset=snap_subset)
+    skillscore = evaluate_theta([285,910,2/9,1.0,0.8,2,2,3,1], snap_subset=snap_subset)
     print('Current skillscore', skillscore)
 
