@@ -32,8 +32,8 @@ else:
     raise Exception('Specify parameter set.')
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
-obs_times = [start + timedelta(days=i) for i in range(5478)]
-#obs_times = [start + timedelta(days=i) for i in range(0, 10)]
+#obs_times = [start + timedelta(days=i) for i in range(5478)]
+obs_times = [start + timedelta(days=i) for i in range(0, 5478)]
 
 plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
 plot_continuous = True   #Will wait for outputs and keep up (if possible)
@@ -55,6 +55,7 @@ parameter_sets = ([[285,910,2/9,1.0,0.8,2  ,2,3,1],   [240,275,2/9,1.0,0.8,2.8,3
 
 parameter_select = parameter_set
 
+
 #Get the model setup depending on the batch numbers
 if (batch_id//2)%2 == 0:
     is_pfss = True
@@ -75,7 +76,7 @@ run_name = run_names[batch_id]
 nicetitle = f"{model}, rss = {rss}, source = {source}"
 
 print('Using default wsa parameters as a reference for later')
-batch_name = f"combine_raw_{parameter_select}_{batch_id}"
+batch_name = f"combine_adjust_{parameter_select}_{batch_id}"
 velocity_type = "wsa_combined"
 
 nicetitle = f"{model}, rss = {rss}, source = {source}"
@@ -101,5 +102,16 @@ test_parameters = {"observation_time": obs_times,
                 "do_plots": False}
 
 theta = parameter_sets[parameter_select]
+print(theta)
+#Load in adjustments for the other models
+chb_biases = np.loadtxt('./data/shared_data/chb_biases.txt', delimiter = ',')
+fs_biases = np.loadtxt('./data/shared_data/fs_biases.txt', delimiter = ',')
+
+chb_bias = chb_biases[batch_id]
+fs_bias = fs_biases[batch_id]
+
+theta[5] = theta[5]*chb_bias
+theta[8] = theta[8]*fs_bias
+
 fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, save_speeds=True)
 
