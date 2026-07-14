@@ -22,7 +22,7 @@ import matplotlib
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]
-test_single =  False
+test_single = False
 
 if "SLURM_JOB_ID" in os.environ:
     n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
@@ -31,7 +31,7 @@ else:
     print('Running locally (not on slurm)')
     n_cores = 8
 
-nsamples = 50
+nsamples = 100
 extend_current_run = False
 use_neural_net = False
 
@@ -39,6 +39,8 @@ if not use_neural_net:
     theta_size = 8
 else:
     theta_size = 41
+
+theta_size = 5   #New parameters to vary are: a, g, w, d, i. Overall vslow/vfast are constant as such scaling can be taken care of in THIS file, where it is nicely optimised.
 
 #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
 #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
@@ -73,12 +75,9 @@ else:
 
 run_name = run_names[batch_id]
 
-if use_neural_net:
-    batch_name = f"net_test_{batch_id}"
-    velocity_type = "neural_net"
-else:
-    batch_name = f"combined_static_{batch_id}"
-    velocity_type = "wsa_scaled"
+batch_name = f"combined_{batch_id}"
+velocity_type = "wsa_combined"   #To be used for the physics-informed parameter-changing. Just a select few of them. See if there are any mad patterns.
+
 
 test_parameters = {"observation_time": obs_times,
                 "base_name": run_names[batch_id],
@@ -193,13 +192,13 @@ def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0
             if run_parameters["verbose"]:
                 print(f'Running HuXT forecast model at time {obs_time}')
 
-            if run_parameters["velocity_type"] == "wsa" or run_parameters["velocity_type"] == "wsa_scaled" :
+            if run_parameters["velocity_type"] == "wsa" or run_parameters["velocity_type"] == "wsa_scaled" or run_parameters["velocity_type"] == "wsa_combined":
                 #This is the polynomial expression
                 if theta is not None:
                     if si == 0:
-                        vr = wf.field_calculations.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                        vr = wf.field_calculations.compute_vr(snap_id, run_name, run_parameters["velocity_type"], params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
                     else:
-                        vr = wf.field_calculations.compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+                        vr = wf.field_calculations.compute_vr(snap_id, run_name, run_parameters["velocity_type"], params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
                 else:
                     if run_parameters["verbose"]:
                         print('Using default WSA parameters')
@@ -286,7 +285,7 @@ def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0
         wsa_diff = wsa_filtered - wsa_shift_filtered   #Difference in WSA prediction since the last month
 
 
-        optimum_factor = 1.0# minimize(check_combination_factor, x0 = 1.0).x
+        optimum_factor = minimize(check_combination_factor, x0 = 1.0).x
 
         combined_metric = omni_shift_filtered + optimum_factor*wsa_diff
         nas = np.logical_or(np.isnan(combined_metric), np.isnan(omni_filtered))
@@ -418,7 +417,7 @@ def run_cma_mp(n_cores=None):
     with mp.Pool(processes=n_cores) as pool:
         while not es.stop():
 
-            if (len(sigmas)%25) == 0:  #I've not really tested whether this makes any meaningful difference... I think it definitely does a bit. Just needs consistency
+            if (len(sigmas)%50) == 0:  #I've not really tested whether this makes any meaningful difference... I think it definitely does a bit. Just needs consistency
                 random.shuffle(valid_snaps)
                 snap_subset = valid_snaps[:nsamples]
                 previous_snap_subset = snap_subset - 27
@@ -435,7 +434,7 @@ def run_cma_mp(n_cores=None):
             losses = []
             for r in results:
                 try:
-                    losses.append(r.get(timeout=60.0))
+                    losses.append(r.get(timeout=120.0))
                 except Exception:
                     losses.append(1e12)
 

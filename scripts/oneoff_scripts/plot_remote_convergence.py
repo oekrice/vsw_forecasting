@@ -40,7 +40,7 @@ snap_subset = np.array([0] + list(valid_snaps[:nsamples-1]))
 
 fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
 
-for plot_num, batch_id in enumerate(np.arange(7,8)):
+for plot_num, batch_id in enumerate(np.arange(0,8)):
 
     #Get the model setup depending on the batch numbers
     if (batch_id//2)%2 == 0:
@@ -63,7 +63,7 @@ for plot_num, batch_id in enumerate(np.arange(7,8)):
 
     test_parameters = {"observation_time": obs_times,
                     "base_name": run_names[batch_id],
-                    "run_name": f"net_test_{batch_id}",
+                    "run_name": f"combined_dynamic_{batch_id}",
                     "model_type": model,
                     "calculate_base_model": False,
                     "overwrite_base_model": False,

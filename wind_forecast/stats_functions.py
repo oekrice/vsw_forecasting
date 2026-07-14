@@ -245,21 +245,32 @@ def find_data_colourmap(xdata, ydata, npoints, xmin=None, xmax=None, ymin=None, 
     return colormesh, xs, ys
 
 
-def find_ideal_sigma_index(sigmas, threshold=0.5, cutoff=50):
+def find_ideal_sigma_index(sigmas, threshold=0.5, cutoff=50, overall_min=False, rawscores=None):
     """
     There has become too much inconsitency in the ways that the best sigma is calculated, so probably best just put it in this function
     Some of the optimisation runs don't converge, but do reasonably well for A BIT.
     Cut off everything after what that BIT entails, and then find a theta where sigma was reasonably small before that.
+    If overall_min, then just do the minimum, for the ones which aren't converging well at all
     """
     #Find last point at which sigmas is below the threshold
-    if np.max(sigmas) < threshold:
-        last_point = len(sigmas) - 1
+
+    if not overall_min:
+        if np.max(sigmas) < threshold:
+            last_point = len(sigmas) - 1
+        else:
+            last_point = np.max(np.where(sigmas <= threshold)[0])
+        mincheck = max(0, last_point - cutoff + 1)
+        maxcheck = last_point + 1
+        scores = sigmas[mincheck:maxcheck]
+        min_index = int(np.where(scores == np.min(scores))[0][0] + mincheck)
     else:
-        last_point = np.max(np.where(sigmas <= threshold)[0])
-    mincheck = max(0, last_point - cutoff + 1)
-    maxcheck = last_point + 1
-    scores = sigmas[mincheck:maxcheck]
-    min_index = int(np.where(scores == np.min(scores))[0][0] + mincheck)
+        if rawscores is None:
+            raise Exception('Pass through the scores as an extra argument to use this one. Or just devise a scheme which converges, you silly person')
+        max_index = 25
+        max_index = min(25, len(sigmas))
+        scores = rawscores[:max_index]
+        min_index = int(np.where(scores == np.min(scores))[0][0])
+
     return min_index
 
 def get_wasserstein_distance(speeds1, speeds2, nbins=101, doplots=False, huxt_name=None, iteration=0):
@@ -435,18 +446,19 @@ def fast_fractions(vs, velocity_threshold = 500, cadence_days = 5):
 
     return np.array(props)
 
-def do_met_stats(times_omni, model_speeds, reference_speeds, compare_to_persist=True, persistence_cadence=int(24*27.7), thresholds = np.arange(450,600,5), cut_start=None, cut_end=None):
+def do_met_stats(times_omni, model_speeds, reference_speeds, compare_to_persist=True, persistence_cadence=int(24*27.7), persistence_reference=None, thresholds = np.arange(450,600,5), cut_start=None, cut_end=None):
     """
     Do the met office stats -- the proportion of fast solar wind in 5 day chunks and comparison to persistence model (if appropriate)
     Doesn't do any of the slow calculations, but does require the times and vs to be appropriately saved
     """
 
-    if compare_to_persist:
+    if compare_to_persist and persistence_reference is None:
         persistence_int = persistence_cadence
         vs_persist = reference_speeds.copy()
         vs_persist[persistence_int:] = vs_persist[:-persistence_int]
         vs_persist[:persistence_int] = np.nan
-
+    else:
+        vs_persist = persistence_reference
     "#The persistence forecast is meaningless for the first month anyway, so just don't calculate these ones"
 
     threshold_scores = np.zeros(len(thresholds))
