@@ -31,7 +31,7 @@ else:
     print('Running locally (not on slurm)')
     n_cores = 8
 
-nsamples = 2
+nsamples = 500
 extend_current_run = False
 use_neural_net = False
 
