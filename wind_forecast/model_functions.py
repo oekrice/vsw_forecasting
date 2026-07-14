@@ -100,13 +100,13 @@ def run_model(run_parameters, theta=np.zeros(8), snap_subset=None, iteration=0, 
             if run_parameters["verbose"]:
                 print(f'Running HuXT forecast model at time {obs_time}')
 
-            if run_parameters["velocity_type"] == "wsa" or run_parameters["velocity_type"] == "wsa_scaled" :
+            if run_parameters["velocity_type"] == "wsa" or run_parameters["velocity_type"] == "wsa_scaled" or run_parameters["velocity_type"] == "wsa_combined":
                 #This is the polynomial expression
                 if theta is not None:
                     if si == 0:
-                        vr = compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
+                        vr = compute_vr(snap_id, run_name, run_parameters["velocity_type"], params = theta, doplot=run_parameters["do_plots"], iteration=iteration, huxt_name=run_parameters["run_name"])
                     else:
-                        vr = compute_vr(snap_id, run_name, method="wsa_scaled", params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
+                        vr = compute_vr(snap_id, run_name, run_parameters["velocity_type"], params = theta, doplot=False, iteration=iteration, huxt_name=run_parameters["run_name"])
                 else:
                     if run_parameters["verbose"]:
                         print('Using default WSA parameters')

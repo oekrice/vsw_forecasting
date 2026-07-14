@@ -78,7 +78,7 @@ for parameter_select in range(len(parameter_sets)):
 
     print('Using default wsa parameters as a reference for later')
     batch_name = f"combine_raw_{parameter_select}_{batch_id}"
-    velocity_type = "wsa"
+    velocity_type = "wsa_combined"
 
     nicetitle = f"{model}, rss = {rss}, source = {source}"
     test_parameters = {"observation_time": obs_times,

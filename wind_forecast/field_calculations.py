@@ -137,7 +137,7 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
             v = params[8]
         # print('Velocities', scale_limits)
         # print(params)
-        print(vslow, vfast, a, b, g, w, d, i)
+        #print(vslow, vfast, a, b, g, w, d, i)
 
         fs[fs < 0] = 0  # numerical error leading to negative fs
         vr = (
