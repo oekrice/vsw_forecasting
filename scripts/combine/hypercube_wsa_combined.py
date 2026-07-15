@@ -33,7 +33,7 @@ else:
     print('Running locally (not on slurm)')
     n_cores = 8
 
-nsamples = 500
+nsamples = 200
 extend_current_run = False
 use_neural_net = False
 
@@ -406,7 +406,7 @@ def run_cma_mp(n_cores=None):
                 for theta in sample[lump*n_cores:(lump+1)*n_cores]
             ]
             for r in results:
-                losses.append(r.get(timeout=1000.0))
+                losses.append(r.get(timeout=3600.0))
 
     return
 

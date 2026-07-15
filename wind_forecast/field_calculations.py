@@ -110,7 +110,7 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
     elif method == "wsa_combined":
         #This uses the limit data file to get each parameter while keeping them reasonable.
 
-        if True:   #This does the scaling, which works for the optimisation script but probably won't here.
+        if False:   #This does the scaling, which works for the optimisation script but probably won't here.
             scale_limits= np.loadtxt('./data/shared_data/wsa_limits_combined.dat', delimiter = ',')
 
             def scale_parameter(i, x):
@@ -136,7 +136,7 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
             v = params[8]
         # print('Velocities', scale_limits)
         # print('Params', params)
-        # print('Velocities', vslow, vfast, a, b, g, w, d, i,v)
+        print('Velocities', vslow, vfast, a, b, g, w, d, i,v)
 
         fs[fs < 0] = 0  # numerical error leading to negative fs
         vr = (

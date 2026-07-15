@@ -27,7 +27,7 @@ else:
     raise Exception('Specify batch number.')
 
 if len(sys.argv) > 2:
-    parameter_set = int(sys.argv[2])
+    parameter_select = int(sys.argv[2])
 else:
     raise Exception('Specify parameter set.')
 
@@ -51,9 +51,7 @@ batch_id = batch_select
 
 snap_subset = np.arange(len(obs_times)) #This should just start from the start now
 
-parameter_sets = ([[285,910,2/9,1.0,0.8,2  ,2,3,1],   [240,275,2/9,1.0,0.8,2.8,3,1,1],    [250,680,1/3,1.0,0.8,4  ,4,1,1]])
-
-parameter_select = parameter_set
+default_parameter_set = [285,910,2/9,1.0,0.8,2  ,2,3,1]
 
 #Get the model setup depending on the batch numbers
 if (batch_id//2)%2 == 0:
@@ -100,6 +98,16 @@ test_parameters = {"observation_time": obs_times,
                 "optimisation_type": "least_squares",
                 "do_plots": False}
 
-theta = parameter_sets[parameter_select]
+if parameter_select == 1:  #Use the optimised values from the saved-out file
+    parameter_fname = './data/shared_data/optimum_parameters.csv'
+    with open(parameter_fname, "r", encoding="utf-8") as f:
+        data = csv.reader(f)
+        for ri, row in enumerate(data):
+            if ri == batch_select:
+                parameters = row
+    theta = np.array(parameters, dtype='float')
+else:
+    theta = default_parameter_set
+
 fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, save_speeds=True)
 
