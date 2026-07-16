@@ -29,7 +29,8 @@ else:
 if len(sys.argv) > 2:
     parameter_select = int(sys.argv[2])
 else:
-    raise Exception('Specify parameter set.')
+    print('Parameter set not specified, using defaults...')
+    parameter_select = 0
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 obs_times = [start + timedelta(days=i) for i in range(5478)]

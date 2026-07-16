@@ -366,6 +366,7 @@ def get_average_speeds(alltimes, allspeeds, spinup_time = 0, cadence=10, weighte
     else:
 
         for set_num in range(len(alltimes)):
+
             if verbose:
                 print(f'Averaging set {set_num} of {len(alltimes)}...')
             #Run through each INDIVIDUAL set
