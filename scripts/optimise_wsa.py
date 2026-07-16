@@ -19,8 +19,8 @@ matplotlib.use('Agg')
 #Will automatically create a run ID with parameters encoded into the outputs, one hopes.
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
-obs_times = [start + timedelta(days=i) for i in range(5478)]
-test_single =  False
+obs_times = [start + timedelta(days=i) for i in range(30)]
+test_single =  True
 
 if "SLURM_JOB_ID" in os.environ:
     n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
@@ -75,7 +75,7 @@ if use_neural_net:
     batch_name = f"net_test_{batch_id}"
     velocity_type = "neural_net"
 else:
-    batch_name = f"corr_nocmes_{batch_id}"
+    batch_name = f"overfit_test_{batch_id}"
     velocity_type = "wsa_scaled"
 
 test_parameters = {"observation_time": obs_times,

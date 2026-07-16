@@ -48,9 +48,9 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
 
     s0, ph0, br0, fs, chd = load_chb_distances(run_name, snap_id)
     if params is None and method == "wsa_scaled":
-        params = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        params = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     elif params is None and method == "wsa":
-        params = [285, 625+285, 0.22222, 1, 0.8, 2, 2, 3]
+        params = [285, 625+285, 0.22222, 1, 0.8, 2, 2, 3, 1.0]
     elif params is None and method == "wsa_combined":
         params = [0.0, 0.0, 0.0, 0.0, 0.0]
 
@@ -98,6 +98,7 @@ def compute_vr(snap_id, run_name, method="wsa", params=[285, 625+285, 0.22222, 1
         w = scale_parameter(5, params[5])
         d = scale_parameter(6, params[6])
         i = scale_parameter(7, params[7])
+        v = scale_parameter(8, params[8])
         # print('Velocities', scale_limits)
         # print(params)
         # print(vslow, vfast, a, b, g, w, d, i)
