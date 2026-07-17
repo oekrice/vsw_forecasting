@@ -32,8 +32,9 @@ scale_sources = ["WSA", "combine", "combine_optimised", "reference"]
 
 # scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/raw_speeds/combine_* ./data/raw_speeds
 
-for a in [0,1]:
-    bs = [0,1,2]
+for a in [0]:
+    #bs = [0,1,2]
+    bs = [2]
     #bs = [0,2,3]
     for b in bs:
 
@@ -80,8 +81,8 @@ for a in [0,1]:
             nicetitle = f"{model}, r_ss = {rss}, {source}"
             return nicetitle
 
-
-        omni_fname = f'./data/raw_speeds/wsa_nocmes_0_wsa_speeds_ref.txt'
+        ref_batch_name = f'{parameter_source}_{0}_{0}'
+        omni_fname = f'./data/raw_speeds/{ref_batch_name}_wsa_combined_speeds_ref.txt'
 
         persistence_time = 27.27 #Time in days for persistence model checks
         persistence_time_int = int(persistence_time*24)  #The cut in hours
@@ -89,7 +90,7 @@ for a in [0,1]:
         persist_data = np.nan*omni
         persist_data[persistence_time_int:] = omni[:-persistence_time_int]
 
-        timeseries = np.loadtxt(f'./data/raw_speeds/wsa_nocmes_0_wsa_scaled_times.txt', dtype='datetime64[s]', delimiter = ',')  #Just pick any of the timeseries -- they all should match
+        timeseries = np.loadtxt(f'./data/raw_speeds/{ref_batch_name}_wsa_combined_times.txt', dtype='datetime64[s]', delimiter = ',')  #Just pick any of the timeseries -- they all should match
 
         cme_mask = fcast.data_functions.get_cme_times(timeseries)
 
@@ -192,17 +193,33 @@ for a in [0,1]:
                 r, _ = pearsonr(combined_metric[~nas], omni_filtered[~nas])
                 return 1.0-r
 
-            def check_combination_factor(factor):
+            def check_combination_factor(factor, filter_firsthalf=False):
                 #Gives the geometic mean of the two things that can be minimised.
+
+
                 combined_metric = omni_shift_filtered + factor*wsa_diff
                 nas = np.logical_or(np.isnan(combined_metric), np.isnan(omni_filtered))
+
+                if filter_firsthalf: #Just use the first half of each year to do the optimisation (roughly, I'm not caring about leap years or anything here...)
+                    #print(len(combined_metric), np.sum(nas))
+                    #Disallow the second half of each year, so it's not over-optimised
+                    cadence = int(24*365.25)
+                    n_min = 0; n_max = cadence//2
+                    while n_max < len(combined_metric):
+                        nas[n_min:n_max] = True
+                        n_min += cadence; n_max += cadence
+                    #print(len(combined_metric), np.sum(nas))
+
                 r, _ = pearsonr(combined_metric[~nas], omni_filtered[~nas])
                 rms = np.sqrt(np.nanmean((combined_metric[~nas] - omni_filtered[~nas])**2))
                 ref_r, _ = pearsonr(omni_shift_filtered[~nas], omni_filtered[~nas])
                 ref_rms = np.sqrt(np.nanmean((omni_shift_filtered[~nas] - omni_filtered[~nas])**2))
 
-                correlation_improvement = (1.0-r)/(1.0-ref_r)
-                rms_improvement = rms/ref_rms
+                # correlation_improvement = (1.0-r)/(1.0-ref_r)
+                # rms_improvement = rms/ref_rms
+
+                correlation_improvement = (1.0-r)
+                rms_improvement = rms/100.0
 
                 if correlation_improvement >= 1.0:
                     #Introduce a harsh penalty for getting worse. Needs to be continuous though.
@@ -254,7 +271,7 @@ for a in [0,1]:
             elif scale_source == "combine":
                 best_metric = omni_shift_filtered + 1.0*wsa_diff
             elif scale_source == "combine_optimised":
-                optimum_factor = minimize(check_combination_factor, x0 = 1.0)
+                optimum_factor = minimize(check_combination_factor, x0 = 1.0, args=(True))
                 best_metric = omni_shift_filtered + optimum_factor.x*wsa_diff
             elif scale_source == "reference":
                 best_metric = omni_shift_filtered

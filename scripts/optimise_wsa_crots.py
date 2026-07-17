@@ -24,15 +24,85 @@ start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
 #obs_times = [start + timedelta(days=i) for i in range(5478)]
 obs_times = [start + timedelta(days=i) for i in range(5478)]
 
+test_single = False
 
 if "SLURM_JOB_ID" in os.environ:
     n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
     print('Number of slurm-allocated cores:', n_cores)
 else:
     print('Running locally (not on slurm)')
-    n_cores = 8
+    n_cores = 2
 
+nsamples = len(obs_times)
+extend_current_run = False
 
+theta_size = 9
+
+#Establish valid snaps at the start. No randomised picking or anything, as that doesn't seem to work well
+
+test_crots = [2100, 2193, 2238, 2258]  #These have been chosen as they have decent correlations and not many CMEs, but spread out throughout the time period
+
+valid_snaps = np.arange(221,248).tolist() + np.arange(2758,2785).tolist() + np.arange(3985,4012).tolist() + np.arange(4531,4558).tolist()
+valid_snaps = np.array(valid_snaps)
+
+run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
+
+if len(sys.argv) > 1:
+    batch_id = int(sys.argv[1])
+else:
+    raise Exception('Specify batch number.')
+
+#Get the model setup depending on the batch numbers
+if (batch_id//2)%2 == 0:
+    is_pfss = True
+    model = "pfss"
+else:
+    is_pfss = False
+    model = "outflow"
+
+if (batch_id%2) == 0:
+    rss = 2.5
+else:
+    rss = 5.0
+
+if (batch_id//4) == 0:
+    source = "gong"
+else:
+    source = "hmi"
+
+run_name = run_names[batch_id]
+
+batch_name = f"crot_fit_{batch_id}"
+velocity_type = "wsa_scaled"   #To be used for the physics-informed parameter-changing. Just a select few of them. See if there are any mad patterns.
+
+test_parameters = {"observation_time": obs_times,
+                "base_name": run_names[batch_id],
+                "run_name": batch_name,
+                "model_type": model,
+                "calculate_base_model": False,
+                "overwrite_base_model": False,
+                "calculate_huxt": True,
+                "r_ss": rss,
+                "WSA_type": "standard",
+                "WSA_parameters": None,
+                "data_source": source,
+                "resolutions": [120,180,360],
+                "r_hb": 21.5,
+                "match_flag": False,
+                "velocity_type": velocity_type,
+                "spinup_time": 5,
+                "forecast_length": 5,
+                "verbose": True,
+                "optimisation_type": "correlation",
+                "do_plots": False,
+                "filter_cmes": True}
+
+if not os.path.exists(f"./data/{test_parameters['run_name']}"):
+    os.mkdir(f"./data/{test_parameters['run_name']}")
+
+#Save a log to let the thing know it's started, for logging purposes
+np.savetxt(f"./data/{test_parameters['run_name']}/start.dat", [n_cores])
+print('Running job with name', test_parameters['run_name'], 'using data', test_parameters['base_name'])
 
 
 def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0, output_distributions=False, save_speeds=False, use_old_chb_formula=False):
@@ -149,34 +219,23 @@ def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0
 
             #Using this velocity map (and nothing else?), run HuxT
             times, model_speeds, _ = wf.field_calculations.get_vsw(snap_id, run_parameters["base_name"], obs_time, vr, spinup_cme_days=run_parameters["spinup_time"], fcast_length=run_parameters["forecast_length"])
-            omni_times, omni_speeds = wf.stats_functions.get_average_speeds([omni_dates], [omni_vs], spinup_time = 0, cadence = 24, target_times = times, verbose=run_parameters["verbose"])
+            omni_times, omni_speeds = wf.stats_functions.get_average_speeds([omni_dates], [omni_vs], spinup_time = run_parameters["spinup_time"], cadence = 24, target_times = times, verbose=run_parameters["verbose"])
 
             alltimes.append(times)
             allspeeds.append(model_speeds)
             allspeeds_ref.append(omni_speeds)
-            plt.plot(times, model_speeds, linewidth=0.2, c = plot_colour)
+
         #Combine into one set of values, mainly consisting of NaNs (which is what we want really)
-        times_avg, wsa = wf.stats_functions.get_average_speeds(alltimes, allspeeds, spinup_time =run_parameters["spinup_time"], cadence = 24, verbose=False)
-        _, omni = wf.stats_functions.get_average_speeds(alltimes, allspeeds_ref, spinup_time =run_parameters["spinup_time"], cadence = 24, verbose=False)
-
-        if model_type == 0:
-            plt.plot(times_avg, wsa, linewidth = 2, c = plot_colour, label = 'Default WSA Parameters')
-        elif model_type == 1:
-            plt.plot(times_avg, wsa, linewidth = 2, c = plot_colour, label = 'Optimised WSA Parameters')
-        elif model_type == 2:
-            plt.plot(times_avg, wsa, linewidth = 2, c = plot_colour, label = 'Neural Net')
-
-        if model_type == 2:
-            plt.plot(times_avg, omni, linewidth = 2, c = 'black', label = 'OMNI Measurements')
-            plt.xlim(np.nanmin(times_avg), np.nanmax(times_avg))
+        times_avg, wsa = wf.stats_functions.get_average_speeds(alltimes, allspeeds, spinup_time=run_parameters["spinup_time"], cadence = 24, verbose=False)
+        _, omni = wf.stats_functions.get_average_speeds(alltimes, allspeeds_ref, spinup_time=run_parameters["spinup_time"], cadence = 24, verbose=False)
 
         wsa_filtered = wsa.copy()
         omni_filtered = omni.copy()
 
         nas = np.logical_or(np.isnan(wsa_filtered), np.isnan(omni_filtered))
         bestr, _ = pearsonr(wsa_filtered[~nas], omni_filtered[~nas])
-        best_rms = np.sqrt(np.nanmean((wsa_filtered[~nas] - omni_filtered[~nas])**2))
 
+        best_rms = np.sqrt(np.nanmean((wsa_filtered[~nas] - omni_filtered[~nas])**2))
 
         correlation_improvement = (1.0-bestr)
         rms_improvement = best_rms/100.0
@@ -214,7 +273,7 @@ def evaluate_theta(theta, snap_subset):
 
     minimiser = np.mean(skillscores)
 
-    #np.savetxt(f"./data/{test_parameters['run_name']}/start_theta.dat", [theta])
+    np.savetxt(f"./data/{test_parameters['run_name']}/start_theta.dat", [theta])
 
     return minimiser
 
@@ -245,117 +304,98 @@ def load_directory():
 
     return scores, sigmas, thetas
 
-nsamples = len(obs_times)
-extend_current_run = False
-use_neural_net = True
+def run_cma_mp(n_cores=None):
 
-if not use_neural_net:
-    theta_size = 9
-else:
-    theta_size = 41
+    if n_cores is None:
+        n_cores = int(os.environ.get("SLURM_CPUS_PER_TASK", mp.cpu_count()))
 
-#Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
-#Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
-#Let's specify literally everything here, all the parameters which can happen.
-#Will need a lookup table or equivalent to find data which matches things as they should.
-#Can specify file name to look up WSA parameters? Yeah, probably.
-fig = plt.figure(figsize=(10,7))
+    pool = mp.Pool(processes=n_cores)
+    best_loss = float("inf")
+    best_theta = None
 
-#Run through vanilla WSA, Otpimised WSA and Neural Net. To make the point.
+    popsize = n_cores
+    while popsize < 16:
+         popsize += n_cores
 
+    print('Ncores:', n_cores, 'Population size', popsize)
 
-run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
+    if not extend_current_run:
+        if os.path.exists(f'data/{test_parameters["run_name"]}/log.csv'):
+            os.remove(f'data/{test_parameters["run_name"]}/log.csv')
 
-if len(sys.argv) > 1:
-    batch_id = int(sys.argv[1])
-else:
-    raise Exception('Specify batch number.')
+        es = cma.CMAEvolutionStrategy(np.zeros(theta_size), 0.1, {'verb_disp': 1, 'popsize': popsize})
+        best_losses = []
+        sigmas = []
 
-#Get the model setup depending on the batch numbers
-if (batch_id//2)%2 == 0:
-    is_pfss = True
-    model = "pfss"
-else:
-    is_pfss = False
-    model = "outflow"
-
-if (batch_id%2) == 0:
-    rss = 2.5
-else:
-    rss = 5.0
-
-if (batch_id//4) == 0:
-    source = "gong"
-else:
-    source = "hmi"
-
-run_name = run_names[batch_id]
-
-colours = ['red', 'green', 'blue']
-
-for model_type in range(3):
-
-    plot_colour = colours[model_type]
-    if model_type == 0:
-        batch_name = f"overfit_{batch_id}"
-        velocity_type = "wsa"   #To be used for the physics-informed parameter-changing. Just a select few of them. See if there are any mad patterns.
-    elif model_type == 1:
-        batch_name = f"overfit_{batch_id}"
-        velocity_type = "wsa_scaled"   #To be used for the physics-informed parameter-changing. Just a select few of them. See if there are any mad patterns.
-    elif model_type == 2:
-        batch_name = f"overfit_net_{batch_id}"
-        velocity_type = "neural_net"   #To be used for the physics-informed parameter-changing. Just a select few of them. See if there are any mad patterns.
-
-    test_parameters = {"observation_time": obs_times,
-                    "base_name": run_names[batch_id],
-                    "run_name": batch_name,
-                    "model_type": model,
-                    "calculate_base_model": False,
-                    "overwrite_base_model": False,
-                    "calculate_huxt": True,
-                    "r_ss": rss,
-                    "WSA_type": "standard",
-                    "WSA_parameters": None,
-                    "data_source": source,
-                    "resolutions": [120,180,360],
-                    "r_hb": 21.5,
-                    "match_flag": False,
-                    "velocity_type": velocity_type,
-                    "spinup_time": 5,
-                    "forecast_length": 5,
-                    "verbose": True,
-                    "optimisation_type": "correlation",
-                    "do_plots": False,
-                    "filter_cmes": True}
-
-    if not os.path.exists(f"./data/{test_parameters['run_name']}"):
-        os.mkdir(f"./data/{test_parameters['run_name']}")
-
-    #Save a log to let the thing know it's started, for logging purposes
-    np.savetxt(f"./data/{test_parameters['run_name']}/start.dat", [n_cores])
-    print('Running job with name', test_parameters['run_name'], 'using data', test_parameters['base_name'])
-
-    scores, sigmas, thetas = load_directory()
-    best_index = np.where(scores == np.min(scores))[0][0]
-
-    theta = thetas[best_index]
-    snap_start = 108
-    snap_end = 135#135
-    valid_snaps = np.arange(snap_start, snap_end)#np.arange(len(obs_times))#[1-cme_mask]
-    snap_subset = valid_snaps
-    if model_type > 0:
-        skillscore = evaluate_theta(theta, snap_subset=snap_subset)
     else:
-        skillscore = evaluate_theta(None, snap_subset=snap_subset)
+        if os.path.exists(f'data/{test_parameters["run_name"]}/log.csv'):
+            scores, sigmas, thetas = load_directory()
+            sigmas = list(sigmas)
+            best_losses = list(scores)
+            es = cma.CMAEvolutionStrategy(thetas[-1], sigmas[-1], {'verb_disp': 1, 'popsize': popsize})
+            print('Using existing run, initial conditions', thetas[-1], sigmas[-1])
+        else:
+            best_losses = []
+            sigmas = []
+            es = cma.CMAEvolutionStrategy(np.zeros(theta_size), 0.1, {'verb_disp': 1, 'popsize': popsize})
 
-    print('Range:', snap_start, snap_end)
+    snap_subset = valid_snaps
+
+    with mp.Pool(processes=n_cores) as pool:
+        while not es.stop():
+
+            solutions = es.ask()
+
+            results = [
+                pool.apply_async(evaluate_theta, (theta,snap_subset))
+                for theta in solutions
+            ]
+
+            losses = []
+            for r in results:
+                try:
+                    losses.append(r.get(timeout=1000.0))
+                except Exception:
+                    losses.append(1e12)
+
+            es.tell(solutions, losses)
+            best_loss = 1e6
+            best_theta = None
+            for theta, loss in zip(solutions, losses):
+                print("Current score", loss)
+
+                if loss < best_loss:
+                    best_loss = loss
+                    best_theta = theta.copy()
+
+            #Run the model with the best ones to do a plot of progress?
+            #fcast.run_model(test_parameters, best_theta, iteration = len(best_losses), snap_subset=[0])
+
+            best_losses.append(best_loss)
+            sigmas.append(es.sigma)
+
+            wf.data_functions.update_theta_record(test_parameters, best_loss, es.sigma, best_theta)  #This keeps a record of which thetas are good, and the sigma at that time.
+
+            if not os.path.exists('plots'):
+                os.mkdir('plots')
+            if not os.path.exists(f'plots/{test_parameters["run_name"]}'):
+                os.mkdir(f'plots/{test_parameters["run_name"]}')
+
+            if False:
+                fig, axs = plt.subplots(2, figsize = (10,7))
+                axs[0].plot(best_losses)
+                axs[1].plot(sigmas)
+                plt.savefig('./plots/%s/converge.png' % test_parameters["run_name"])
+                plt.close()
+
+    return
+
+if not test_single:
+    if __name__ == "__main__":
+        run_cma_mp(n_cores=n_cores)
+
+else:
+    snap_subset = valid_snaps
+    skillscore = evaluate_theta(np.zeros(theta_size), snap_subset=snap_subset)
     print('Current skillscore', skillscore)
 
-plt.xlabel('Time')
-plt.ylabel('Wind Speed')
-plt.xticks(rotation=45, fontsize=12)
-plt.yticks(fontsize=12)
-plt.legend(fontsize=12)
-plt.tight_layout()
-plt.savefig('./plots/overfit/overfit_all.png')
-plt.show()

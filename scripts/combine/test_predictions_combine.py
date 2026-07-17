@@ -99,7 +99,7 @@ test_parameters = {"observation_time": obs_times,
                 "optimisation_type": "least_squares",
                 "do_plots": False}
 
-if parameter_select == 1:  #Use the optimised values from the saved-out file
+if parameter_select == 1:  #Use the optimised values from the saved-out file (generated using make_optimum_parameter_file)
     parameter_fname = './data/shared_data/optimum_parameters.csv'
     with open(parameter_fname, "r", encoding="utf-8") as f:
         data = csv.reader(f)
