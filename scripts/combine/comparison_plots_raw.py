@@ -34,7 +34,7 @@ scale_sources = ["WSA", "combine", "combine_optimised", "reference"]
 
 for a in [0]:
     #bs = [0,1,2]
-    bs = [2]
+    bs = [0,1,2,3]
     #bs = [0,2,3]
     for b in bs:
 

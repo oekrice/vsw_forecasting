@@ -5,7 +5,7 @@ import numpy as np
 import os, sys
 import csv
 
-base_name = 'combined'
+base_name = 'crot_fit'
 destination_fname = './data/shared_data/optimum_parameters.csv'
 
 if os.path.exists(destination_fname):
@@ -40,20 +40,22 @@ for run_num in range(8):
     #Requires the limits to be consistet throughout, but this can be stolen from compute_vr, I think.
     parameter_set = np.zeros(9)
     params = bestrow[2:]
-    scale_limits= np.loadtxt('./data/shared_data/wsa_limits_combined.dat', delimiter = ',')
+    scale_limits= np.loadtxt('./data/shared_data/wsa_limits.dat', delimiter = ',')
 
     def scale_parameter(i, x):
         return 0.5*(1.0 + np.tanh(x))*(scale_limits[i][1] - scale_limits[i][0]) + scale_limits[i][0]
 
-    parameter_set[0] = 285
-    parameter_set[1] = 910
-    parameter_set[2] = scale_parameter(0, params[0])
-    parameter_set[3] = 1.0
-    parameter_set[4] = 0.8
-    parameter_set[5] = scale_parameter(1, params[1])
-    parameter_set[6] = scale_parameter(2, params[2])
-    parameter_set[7] = scale_parameter(3, params[3])
-    parameter_set[8] = scale_parameter(4, params[4])
+    parameter_set[0] = scale_parameter(0, params[0])
+    parameter_set[1] = scale_parameter(1, params[1])
+    parameter_set[2] = scale_parameter(2, params[2])
+    parameter_set[3] = scale_parameter(3, params[3])
+    parameter_set[4] = scale_parameter(4, params[4])
+    parameter_set[5] = scale_parameter(5, params[5])
+    parameter_set[6] = scale_parameter(6, params[6])
+    parameter_set[7] = scale_parameter(7, params[7])
+    parameter_set[8] = scale_parameter(8, params[8])
+
+    print(parameter_set)
 
     #Save these out in a sensible place, to be read in by the 'speeds' script
 

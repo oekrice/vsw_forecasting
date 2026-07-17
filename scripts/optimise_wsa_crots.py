@@ -31,7 +31,7 @@ if "SLURM_JOB_ID" in os.environ:
     print('Number of slurm-allocated cores:', n_cores)
 else:
     print('Running locally (not on slurm)')
-    n_cores = 2
+    n_cores = 4
 
 nsamples = len(obs_times)
 extend_current_run = False
@@ -92,7 +92,7 @@ test_parameters = {"observation_time": obs_times,
                 "velocity_type": velocity_type,
                 "spinup_time": 5,
                 "forecast_length": 5,
-                "verbose": True,
+                "verbose": False,
                 "optimisation_type": "correlation",
                 "do_plots": False,
                 "filter_cmes": True}
