@@ -27,15 +27,14 @@ else:
     raise Exception('Specify batch number.')
 
 if len(sys.argv) > 2:
-    base_selection = int(sys.argv[2])
+    parameter_select = int(sys.argv[2])
 else:
-    raise Exception('Specify base selection.')
+    print('Parameter set not specified, using defaults...')
+    parameter_select = 0
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
-#obs_times = [start + timedelta(days=i) for i in range(5478)]
-obs_times = [start + timedelta(days=i) for i in range(0, 5478)]
-
-n_cores = 8
+obs_times = [start + timedelta(days=i) for i in range(5478)]
+#obs_times = [start + timedelta(days=i) for i in range(0, 10)]
 
 plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
 plot_continuous = True   #Will wait for outputs and keep up (if possible)
@@ -49,78 +48,67 @@ use_neural_net = True
 #Can specify file name to look up WSA parameters? Yeah, probably.
 run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
-batch_bases = ["wsa", "wsa_nocmes", "rms_nocmes", "corr_nocmes"]
-titles1 = ["Default WSA", "Velocities Optimised for Distributions", "Velocities Optimised for RMS", "Velocities Optimised for Correlation"]
-
-batch_base = batch_bases[base_selection]
-title1 = titles1[base_selection]
+batch_id = batch_select
 
 snap_subset = np.arange(len(obs_times)) #This should just start from the start now
 
-print('Running model with base velocities', title1, run_names[batch_select])
-for plot_num, batch_id in enumerate(np.arange(batch_select,batch_select+1)):
+default_parameter_set = [285,910,2/9,1.0,0.8,2  ,2,3,1]
 
-    #Get the model setup depending on the batch numbers
-    if (batch_id//2)%2 == 0:
-        is_pfss = True
-        model = "pfss"
-    else:
-        is_pfss = False
-        model = "outflow"
-    if (batch_id%2) == 0:
-        rss = 2.5
-    else:
-        rss = 5.0
-    if (batch_id//4) == 0:
-        source = "gong"
-    else:
-        source = "hmi"
-    run_name = run_names[batch_id]
+#Get the model setup depending on the batch numbers
+if (batch_id//2)%2 == 0:
+    is_pfss = True
+    model = "pfss"
+else:
+    is_pfss = False
+    model = "outflow"
+if (batch_id%2) == 0:
+    rss = 2.5
+else:
+    rss = 5.0
+if (batch_id//4) == 0:
+    source = "gong"
+else:
+    source = "hmi"
+run_name = run_names[batch_id]
 
-    nicetitle = f"{model}, rss = {rss}, source = {source}"
+nicetitle = f"{model}, rss = {rss}, source = {source}"
 
-    if batch_base == "wsa":
-        print('Using default wsa parameters as a reference for later')
-        batch_name = f"combine_raw _{batch_id}"
-        velocity_type = "wsa"
+print('Using default wsa parameters as a reference for later')
+batch_name = f"combine_{parameter_select}_{batch_id}"
+velocity_type = "wsa_combined"
 
-    nicetitle = f"{model}, rss = {rss}, source = {source}"
-    test_parameters = {"observation_time": obs_times,
-                    "base_name": run_names[batch_id],
-                    "run_name": batch_name,
-                    "model_type": model,
-                    "calculate_base_model": False,
-                    "overwrite_base_model": False,
-                    "calculate_huxt": True,
-                    "r_ss": rss,
-                    "WSA_type": "standard",
-                    "WSA_parameters": None,
-                    "data_source": source,
-                    "resolutions": [120,180,360],
-                    "r_hb": 21.5,
-                    "match_flag": False,
-                    "velocity_type": velocity_type,
-                    "spinup_time": 5,
-                    "forecast_length": 5,
-                    "verbose": True,
-                    "optimisation_type": "least_squares",
-                    "do_plots": False}
+nicetitle = f"{model}, rss = {rss}, source = {source}"
+test_parameters = {"observation_time": obs_times,
+                "base_name": run_names[batch_id],
+                "run_name": batch_name,
+                "model_type": model,
+                "calculate_base_model": False,
+                "overwrite_base_model": False,
+                "calculate_huxt": True,
+                "r_ss": rss,
+                "WSA_type": "standard",
+                "WSA_parameters": None,
+                "data_source": source,
+                "resolutions": [120,180,360],
+                "r_hb": 21.5,
+                "match_flag": False,
+                "velocity_type": velocity_type,
+                "spinup_time": 5,
+                "forecast_length": 5,
+                "verbose": True,
+                "optimisation_type": "least_squares",
+                "do_plots": False}
 
-    if not os.path.exists(f"./data/{test_parameters['run_name']}"):
-        os.mkdir(f"./data/{test_parameters['run_name']}")
+if parameter_select == 1:  #Use the optimised values from the saved-out file (generated using make_optimum_parameter_file)
+    parameter_fname = './data/shared_data/optimum_parameters.csv'
+    with open(parameter_fname, "r", encoding="utf-8") as f:
+        data = csv.reader(f)
+        for ri, row in enumerate(data):
+            if ri == batch_select:
+                parameters = row
+    theta = np.array(parameters, dtype='float')
+else:
+    theta = default_parameter_set
 
-    if not os.path.exists(f"./plots/{test_parameters['run_name']}"):
-        os.mkdir(f"./plots/{test_parameters['run_name']}")
-
-    if find_min_sigma:   #Use the parameters at the point at which the solution appears to have converged the best
-        sigma_index = fcast.stats_functions.find_ideal_sigma_index(sigmas)
-        theta = thetas[-1]
-    else:
-        theta = thetas[-1]
-    nthetas = np.shape(thetas)[0]
-
-    iteration = 0
-    print('Current theta', theta)
-
-    fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, iteration=iteration, save_speeds=True)
+fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, save_speeds=True)
 

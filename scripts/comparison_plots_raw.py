@@ -30,9 +30,9 @@ scale_sources = ["WSA", "combine", "combine_optimised", "reference"]
 
 #To copy raw speeds from Hamilton
 
-# scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/raw_speeds/combine_* ./data/raw_speeds
+# scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/raw_speeds/ ./data/
 
-for a in [0]:
+for a in [0,1]:
     #bs = [0,1,2]
     bs = [0,1,2,3]
     #bs = [0,2,3]
