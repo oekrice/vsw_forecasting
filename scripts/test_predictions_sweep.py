@@ -34,12 +34,26 @@ if len(sys.argv) > 2:
 else:
     raise Exception('Specify sweep index.')
 
-parameter_to_change = sweep_index//10
-parameter_pick = sweep_index%10
+parameter_to_change = sweep_index//ntests
+parameter_pick = sweep_index%ntests
 
-parameter_set = [285,910,2/9,1.0,0.8,2  ,2,3,1]
+parameter_fname = f'./data/shared_data/sweep_paras_{batch_select}.csv'
 
-scale_limits= np.loadtxt('./data/shared_data/wsa_limits.dat', delimiter = ',')
+if os.path.exists(parameter_fname):
+    print('Alread-optimised parameters exist. Using them...')
+    with open(parameter_fname, "r", encoding="utf-8") as f:
+        data = csv.reader(f)
+        for ri, row in enumerate(data):
+            parameter_set = np.array(row).astype('float')
+        #Just automate it. Otherwise we'll just get stuck...
+        scale_limits = np.nan*np.ones((9,2))
+        scale_limits[:,0] = parameter_set/1.5
+        scale_limits[:,1] = parameter_set*1.5
+
+else:
+    parameter_set = [285,910,2/9,1.0,0.8,2  ,2,3,1]
+
+    scale_limits = np.loadtxt('./data/shared_data/wsa_limits.dat', delimiter = ',')
 
 select_scale = np.linspace(scale_limits[parameter_to_change][0], scale_limits[parameter_to_change][1], 10)
 parameter_set[parameter_to_change] = select_scale[parameter_pick]
@@ -115,4 +129,9 @@ test_parameters = {"observation_time": obs_times,
 theta = parameter_set
 
 fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, save_speeds=True)
+
+#Save out this specific parameter combination
+with open(f'./data/raw_speeds/{batch_name}.csv', "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerows([parameter_set])
 
