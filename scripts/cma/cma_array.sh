@@ -15,5 +15,5 @@
 module load python/3.13.9
 module load openmpi
 source .venv/bin/activate
-python scripts/cma/test_predictions_sweep.py $1 ${SLURM_ARRAY_TASK_ID}
+python scripts/cma/setup_model.py $1 ${SLURM_ARRAY_TASK_ID}
 

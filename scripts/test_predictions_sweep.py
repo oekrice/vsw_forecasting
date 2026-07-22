@@ -61,8 +61,8 @@ print('Changing parameter:', parameter_to_change)
 print('To value:', select_scale[parameter_pick])
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
-#obs_times = [start + timedelta(days=i) for i in range(5478)]
-obs_times = [start + timedelta(days=i) for i in range(0, 10)]
+obs_times = [start + timedelta(days=i) for i in range(5478)]
+#obs_times = [start + timedelta(days=i) for i in range(0, 10)]
 
 plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
 plot_continuous = True   #Will wait for outputs and keep up (if possible)

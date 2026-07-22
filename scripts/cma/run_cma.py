@@ -33,8 +33,8 @@ def await_solutions(batch_id, popsize):
     #Runs the processes (this can be tweaked for Hamilton?) and await the solutions
     #Wait (for a certain amount of time...) for the optimum parameters to be saved out. Bit wasteful just to have one file, but meh.
 
-    if "SLURM_JOB_ID" in os.environ:
-        raise Exception('This is running on slurm. Not done that bit yet...)')
+    if "SLURM_JOB_ID" in os.environ or True:
+        #raise Exception('This is running on slurm. Not done that bit yet...)')
         subprocess.Popen(["sbatch",  "scripts/cma/cma_array.sh", str(batch_id)])
 
     else:
@@ -113,7 +113,7 @@ while not es.stop():
         if np.isnan(solutions[i]):
             solutions[i] = 1e10
 
-        snap_id = len(directory_data) - 1
+        snap_id = len(directory_data)
         new_row_data = [snap_id, solutions[i]] + list(parameters[i])
         directory_data.append(new_row_data)
 
