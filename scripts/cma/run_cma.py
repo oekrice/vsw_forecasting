@@ -65,7 +65,7 @@ def await_solutions(batch_id, popsize):
 
 
 data_length = 0
-if do combine:
+if not do_combine:
     directory_fname = f'./data/cma_data/{batch_id}_log.csv'
 else:
     directory_fname = f'./data/cma_data/{batch_id}_combine_log.csv'
