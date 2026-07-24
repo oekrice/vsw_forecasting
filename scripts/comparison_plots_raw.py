@@ -32,9 +32,16 @@ scale_sources = ["WSA", "combine", "combine_optimised", "reference"]
 
 # scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/raw_speeds/ ./data/
 
-for a in [0,1]:
+for a in [1]:
     #bs = [0,1,2]
+    allscores = []
     bs = [0,1,2,3]
+    if a == 0:
+        source_title = "Default Parameters"
+    elif a == 1:
+        source_title = "Optimised Parameters"
+    else:
+        raise Exception('Source not recognised')
     #bs = [0,2,3]
     for b in bs:
 
@@ -131,8 +138,15 @@ for a in [0,1]:
         fig1, axs1 = plt.subplots(2,4, figsize=(12,6))
         for i, batch_name in enumerate(batch_names[:]):
 
-            #Hopefully all things should be arranged nicely time-wise, but do need to check as much
-            data_fname = f'./data/raw_speeds/{batch_name}_wsa_combined_speeds.txt'
+            if a == 1:
+                print("Using 'scaled' parameters")
+                batch_name = f"cma_{i}"
+                #Hopefully all things should be arranged nicely time-wise, but do need to check as much
+                data_fname = f'./data/raw_speeds/{batch_name}_wsa_combined_speeds.txt'
+
+            else:
+                #Hopefully all things should be arranged nicely time-wise, but do need to check as much
+                data_fname = f'./data/raw_speeds/{batch_name}_wsa_combined_speeds.txt'
 
             if not(os.path.exists(omni_fname) and os.path.exists(data_fname)):
                 print('Files not found...', omni_fname, data_fname)
@@ -297,6 +311,20 @@ for a in [0,1]:
             ss_raw = fcast.stats_functions.do_met_stats(timeseries, model_speeds=xdata, reference_speeds=ydata, compare_to_persist=False, thresholds=thresholds)
             ss_raw = np.mean(ss_raw)
 
+            correlation_improvement = (1.0-r)
+            rms_improvement = rms/100.0
+
+            if correlation_improvement >= 1.0:
+                #Introduce a harsh penalty for getting worse. Needs to be continuous though.
+                correlation_improvement = correlation_improvement + 10*(correlation_improvement - 1.0)
+            if rms_improvement >= 1.0:
+                rms_improvement = rms_improvement + 10*(rms_improvement - 1.0)
+
+
+            res = np.sqrt(correlation_improvement*rms_improvement)
+            allscores.append(res)
+            print('Res to beat:', res)
+
             print('Combined correlation, RMS, MAE, diff, and skillscores:',r, rms, mae, diffsim, ss_persist, ss_raw)
 
             #print('Combined correlation, RMS, MAE and distribution similarity:',r, rms, mae, diffsim)
@@ -313,10 +341,11 @@ for a in [0,1]:
             ax.set_yticks([])
             ax.set_xlim(200,800)
             ax.set_ylim(200,800)
-            ax.set_title(f"{make_nicetitle(i)} \n r = {r:.3f}, rms = {rms:.0f}, mae = {mae:.0f}, dist = {diffsim:.3f} \n ss_persist = {ss_persist:.2f}, ss_raw = {ss_raw:.2f}", fontsize = 8)
+            ax.set_title(f"{make_nicetitle(i)} \n r = {r:.3f}, rms = {rms:.0f}, mae = {mae:.0f}, dist = {diffsim:.3f} \n ss_persist = {ss_persist:.2f}, score = {res:.2f}", fontsize = 8)
             #ax.set_ylim(-0.005,0.15)
 
-        plt.suptitle(f"{parameter_source}_{scale_source}")
+            print(np.array(allscores))
+        plt.suptitle(f"{source_title}_{scale_source}")
 
         plt.tight_layout()
         plt.savefig(f'./plots/combine_plots/{a}_{b}.png')

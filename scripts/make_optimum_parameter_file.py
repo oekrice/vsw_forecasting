@@ -13,11 +13,11 @@ if os.path.exists(destination_fname):
 
 for run_num in range(8):
 
-    run_title = f'{base_name}_{run_num}'
+    run_title = 'cma_data'
     #Copy log files from Hamilton
 
     if not os.path.exists(f"./data/{run_title}/log.csv"):
-        copy_command = f'scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{run_title}/log.csv ./data/{run_title}/'
+        copy_command = f'scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{run_title}/{run_num}_log.csv ./data/{run_title}/'
         if not os.path.exists(f"./data/{run_title}/"):
             os.mkdir(f"./data/{run_title}/")
         os.system(copy_command)
@@ -25,7 +25,7 @@ for run_num in range(8):
     bestscore = 1e6
     bestrow = None
     #Find base parameters giving the best scores
-    with open(f"./data/{run_title}/log.csv", "r", encoding="utf-8") as f:
+    with open(f"./data/{run_title}/{run_num}_log.csv", "r", encoding="utf-8") as f:
         log_data = csv.reader(f)
         for row in log_data:
             if not row[0].isnumeric():
@@ -55,9 +55,8 @@ for run_num in range(8):
     parameter_set[7] = scale_parameter(7, params[7])
     parameter_set[8] = scale_parameter(8, params[8])
 
-    print(parameter_set)
-
     #Save these out in a sensible place, to be read in by the 'speeds' script
+    print(parameter_set)
 
     if os.path.exists(destination_fname):
         #This directory already exists. Hopefully with proper header information etc

@@ -9,6 +9,8 @@ import numpy as np
 import subprocess
 import time
 
+do_combine = True
+
 if len(sys.argv) > 1:
     batch_id = int(sys.argv[1])
 else:
@@ -33,7 +35,7 @@ def await_solutions(batch_id, popsize):
     #Runs the processes (this can be tweaked for Hamilton?) and await the solutions
     #Wait (for a certain amount of time...) for the optimum parameters to be saved out. Bit wasteful just to have one file, but meh.
 
-    if "SLURM_JOB_ID" in os.environ or True:
+    if "SLURM_JOB_ID" in os.environ:# or True:
         #raise Exception('This is running on slurm. Not done that bit yet...)')
         subprocess.Popen(["sbatch",  "scripts/cma/cma_array.sh", str(batch_id)])
 
@@ -63,7 +65,10 @@ def await_solutions(batch_id, popsize):
 
 
 data_length = 0
-directory_fname = f'./data/cma_data/{batch_id}_log.csv'
+if do combine:
+    directory_fname = f'./data/cma_data/{batch_id}_log.csv'
+else:
+    directory_fname = f'./data/cma_data/{batch_id}_combine_log.csv'
 
 if os.path.exists(directory_fname):
     #This directory already exists. Hopefully with proper header information etc

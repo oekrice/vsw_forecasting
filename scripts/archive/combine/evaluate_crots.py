@@ -67,10 +67,16 @@ def get_crot_limits():
 # scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/raw_speeds/combine_* ./data/raw_speeds
 crot_numbers, crot_starts = get_crot_limits()  #Just do this once, whatever.
 
-for a in [0]:
+for a in [1]:
     #bs = [0,1,2]
     bs = [0,1,2]
     #bs = [0,2,3]
+    if a == 0:
+        source_title = "Default Parameters"
+    elif a == 1:
+        source_title = "Optimised Parameters"
+    else:
+        raise Exception('Source not recognised')
     for b in bs:
 
         #Pick the desired combination here. The titles above should be kept consistent, but can obviously be added to if desired.
@@ -167,7 +173,15 @@ for a in [0]:
 
             batch_name = batch_names[i]
             #Hopefully all things should be arranged nicely time-wise, but do need to check as much
-            data_fname = f'./data/raw_speeds/{batch_name}_wsa_combined_speeds.txt'
+            if a == 1:
+                print("Using 'scaled' parameters")
+                batch_name = f"cma_{i}"
+                #Hopefully all things should be arranged nicely time-wise, but do need to check as much
+                data_fname = f'./data/raw_speeds/{batch_name}_wsa_combined_speeds.txt'
+
+            else:
+                #Hopefully all things should be arranged nicely time-wise, but do need to check as much
+                data_fname = f'./data/raw_speeds/{batch_name}_wsa_combined_speeds.txt'
 
             if not(os.path.exists(omni_fname) and os.path.exists(data_fname)):
                 print('Files not found...', omni_fname, data_fname)
@@ -429,7 +443,7 @@ for a in [0]:
 
 
         plt.legend(fontsize=10)
-        plt.suptitle(scale_source)
+        plt.suptitle(f"{source_title}_{scale_source}")
         plt.tight_layout()
         plt.savefig(f'./plots/time_plot_{a}_{b}.png')
         #plt.show()

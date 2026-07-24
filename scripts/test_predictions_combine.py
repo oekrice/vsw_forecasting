@@ -21,94 +21,95 @@ import matplotlib
 #This script should just run the base model and HuxT, at a low resolution.
 #Will automatically create a run ID with parameters encoded into the outputs, one hopes.
 
-if len(sys.argv) > 1:
-    batch_select = int(sys.argv[1])
-else:
-    raise Exception('Specify batch number.')
+for batch_select in range(4,8):
+    # if len(sys.argv) > 1:
+    #     batch_select = int(sys.argv[1])
+    # else:
+    #     raise Exception('Specify batch number.')
 
-if len(sys.argv) > 2:
-    parameter_select = int(sys.argv[2])
-else:
-    print('Parameter set not specified, using defaults...')
-    parameter_select = 0
+    if len(sys.argv) > 2:
+        parameter_select = int(sys.argv[2])
+    else:
+        print('Parameter set not specified, using defaults...')
+        parameter_select = 0
 
-start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
-obs_times = [start + timedelta(days=i) for i in range(5478)]
-#obs_times = [start + timedelta(days=i) for i in range(0, 10)]
+    start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
+    obs_times = [start + timedelta(days=i) for i in range(5478)]
+    #obs_times = [start + timedelta(days=i) for i in range(0, 10)]
 
-plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
-plot_continuous = True   #Will wait for outputs and keep up (if possible)
-find_min_sigma = True
-use_neural_net = True
+    plot_specific = -1   #Just evalulate a specific snap. Set to -1 for the latest one
+    plot_continuous = True   #Will wait for outputs and keep up (if possible)
+    find_min_sigma = True
+    use_neural_net = True
 
-#Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
-#Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
-#Let's specify literally everything here, all the parameters which can happen.
-#Will need a lookup table or equivalent to find data which matches things as they should.
-#Can specify file name to look up WSA parameters? Yeah, probably.
-run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
+    #Specify input parameters as a dictionary, which can be embiggened or ensmallened as necessary.
+    #Will check against whether sufficient data exists which matches what has been asked for, and will recalculate if necessary.
+    #Let's specify literally everything here, all the parameters which can happen.
+    #Will need a lookup table or equivalent to find data which matches things as they should.
+    #Can specify file name to look up WSA parameters? Yeah, probably.
+    run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
-batch_id = batch_select
+    batch_id = batch_select
 
-snap_subset = np.arange(len(obs_times)) #This should just start from the start now
+    snap_subset = np.arange(len(obs_times)) #This should just start from the start now
 
-default_parameter_set = [285,910,2/9,1.0,0.8,2  ,2,3,1]
+    default_parameter_set = [285,910,2/9,1.0,0.8,2  ,2,3,1]
 
-#Get the model setup depending on the batch numbers
-if (batch_id//2)%2 == 0:
-    is_pfss = True
-    model = "pfss"
-else:
-    is_pfss = False
-    model = "outflow"
-if (batch_id%2) == 0:
-    rss = 2.5
-else:
-    rss = 5.0
-if (batch_id//4) == 0:
-    source = "gong"
-else:
-    source = "hmi"
-run_name = run_names[batch_id]
+    #Get the model setup depending on the batch numbers
+    if (batch_id//2)%2 == 0:
+        is_pfss = True
+        model = "pfss"
+    else:
+        is_pfss = False
+        model = "outflow"
+    if (batch_id%2) == 0:
+        rss = 2.5
+    else:
+        rss = 5.0
+    if (batch_id//4) == 0:
+        source = "gong"
+    else:
+        source = "hmi"
+    run_name = run_names[batch_id]
 
-nicetitle = f"{model}, rss = {rss}, source = {source}"
+    nicetitle = f"{model}, rss = {rss}, source = {source}"
 
-print('Using default wsa parameters as a reference for later')
-batch_name = f"combine_{parameter_select}_{batch_id}"
-velocity_type = "wsa_combined"
+    print('Using default wsa parameters as a reference for later')
+    batch_name = f"cma_{batch_id}"
+    velocity_type = "wsa_combined"
 
-nicetitle = f"{model}, rss = {rss}, source = {source}"
-test_parameters = {"observation_time": obs_times,
-                "base_name": run_names[batch_id],
-                "run_name": batch_name,
-                "model_type": model,
-                "calculate_base_model": False,
-                "overwrite_base_model": False,
-                "calculate_huxt": True,
-                "r_ss": rss,
-                "WSA_type": "standard",
-                "WSA_parameters": None,
-                "data_source": source,
-                "resolutions": [120,180,360],
-                "r_hb": 21.5,
-                "match_flag": False,
-                "velocity_type": velocity_type,
-                "spinup_time": 5,
-                "forecast_length": 5,
-                "verbose": True,
-                "optimisation_type": "least_squares",
-                "do_plots": False}
+    nicetitle = f"{model}, rss = {rss}, source = {source}"
+    test_parameters = {"observation_time": obs_times,
+                    "base_name": run_names[batch_id],
+                    "run_name": batch_name,
+                    "model_type": model,
+                    "calculate_base_model": False,
+                    "overwrite_base_model": False,
+                    "calculate_huxt": True,
+                    "r_ss": rss,
+                    "WSA_type": "standard",
+                    "WSA_parameters": None,
+                    "data_source": source,
+                    "resolutions": [120,180,360],
+                    "r_hb": 21.5,
+                    "match_flag": False,
+                    "velocity_type": velocity_type,
+                    "spinup_time": 5,
+                    "forecast_length": 5,
+                    "verbose": True,
+                    "optimisation_type": "least_squares",
+                    "do_plots": False}
 
-if parameter_select == 1:  #Use the optimised values from the saved-out file (generated using make_optimum_parameter_file)
-    parameter_fname = './data/shared_data/optimum_parameters.csv'
-    with open(parameter_fname, "r", encoding="utf-8") as f:
-        data = csv.reader(f)
-        for ri, row in enumerate(data):
-            if ri == batch_select:
-                parameters = row
-    theta = np.array(parameters, dtype='float')
-else:
-    theta = default_parameter_set
+    if parameter_select == 1:  #Use the optimised values from the saved-out file (generated using make_optimum_parameter_file)
+        parameter_fname = './data/shared_data/optimum_parameters.csv'
+        with open(parameter_fname, "r", encoding="utf-8") as f:
+            data = csv.reader(f)
+            for ri, row in enumerate(data):
+                if ri == batch_select:
+                    parameters = row
+        theta = np.array(parameters, dtype='float')
+    else:
+        theta = default_parameter_set
 
-fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, save_speeds=True)
+    fcast.model_functions.run_model(test_parameters, theta=theta, snap_subset=snap_subset, save_speeds=True)
 
