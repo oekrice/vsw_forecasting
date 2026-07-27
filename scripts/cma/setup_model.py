@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 from model import run_model
 
 start = datetime(2010, 1, 1) #This CAN'T change for a given run name. BE CAREFUL
-#obs_times = [start + timedelta(days=i) for i in range(5478)]
-obs_times = [start + timedelta(days=i) for i in range(10)]
+obs_times = [start + timedelta(days=i) for i in range(5478)]
+#obs_times = [start + timedelta(days=i) for i in range(60)]
 
 test_single = False
 

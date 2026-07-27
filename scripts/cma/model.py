@@ -124,10 +124,9 @@ def run_model(run_parameters, theta=None, snap_subset=None, iteration=0, output_
         #best_metric = wsa_filtered
         best_metric = omni_shift_filtered + 1.0*wsa_diff
 
-        nas = np.logical_or(np.isnan(wsa_filtered), np.isnan(omni_filtered))
+        nas = np.logical_or(np.isnan(best_metric), np.isnan(omni_filtered))
         bestr, _ = pearsonr(best_metric[~nas], omni_filtered[~nas])
         best_rms = np.sqrt(np.nanmean((best_metric[~nas] - omni_filtered[~nas])**2))
-
 
         correlation_improvement = (1.0-bestr)
         rms_improvement = best_rms/100.0
