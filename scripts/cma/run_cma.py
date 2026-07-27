@@ -47,7 +47,7 @@ def await_solutions(batch_id, popsize):
     #Wait for result files to be made.
     results = np.full(popsize, fill_value=-1.0)
     time_start = time.time()
-    timeout = 3600*6 # Three hours for timeout, eventually?
+    timeout = 3600*12 # Three hours for timeout, eventually?
     while np.nanmin(results) < 0 and time.time() - time_start < timeout:
         for i in range(popsize):
             if results[i] > 0 or np.isnan(results[i]):
