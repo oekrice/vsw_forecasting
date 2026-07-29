@@ -38,7 +38,7 @@ plt.rcParams.update({
     "ytick.labelsize": 8,
 })
 
-fig_width = 4.5
+fig_width = 443.57848/72
 
 #To copy raw speeds from Hamilton
 
@@ -145,16 +145,15 @@ for a in [0]:
 
         batch_names = []
 
-        for i in range(8):
+        for i in range(0,8):
             batch_names.append(f'{parameter_source}_{a}_{i}')
 
         print(batch_names)
-        fig1, axs1 = plt.subplots(2,2, figsize=(fig_width,fig_width))
-        for ai, i in enumerate([4,5,6,7]):
+        fig1, axs1 = plt.subplots(2,4, figsize=(fig_width,fig_width/2))
+        for i, batch_name in enumerate(batch_names[:]):
 
-            batch_name = batch_names[i]
             if a == 1:
-                print("Using 'scaled' parameters")
+                #print("Using 'scaled' parameters")
                 batch_name = f"cma_{i}"
                 #Hopefully all things should be arranged nicely time-wise, but do need to check as much
                 data_fname = f'./data/raw_speeds/{batch_name}_wsa_combined_speeds.txt'
@@ -338,37 +337,24 @@ for a in [0]:
 
             res = np.sqrt(correlation_improvement*rms_improvement)
             allscores.append(res)
-            print('Res to beat:', res)
+            #print('Res to beat:', res)
 
-            print('Combined correlation, RMS, MAE, diff, and skillscores:',r, rms, mae, diffsim, ss_persist, ss_raw)
+            line_string = ''
+            line_string += make_nicetitle(i) + ' & '
 
+            #print('Combined correlation, RMS, MAE, diff, and skillscores:',r, rms, mae, diffsim, res)
             #print('Combined correlation, RMS, MAE and distribution similarity:',r, rms, mae, diffsim)
 
-            ax = axs1[ai//2, ai%2]
+            #line_string += "str(r) + ' & ' + str(rms) + ' & ' + str(mae) + ' & ' + str(diffsim) + ' & ' + str(res) + ' // '"
+            line_string += f"{r:.3f} & {rms:.1f}  & {mae:.1f} &  {diffsim:.3f} & {res:.3f} \\ "
 
-            if ai//2 == 1:
-                ax.set_xlabel('Prediction')
-            if ai%2 == 0:
-                ax.set_ylabel('OMNI')
+            print(line_string)
 
-            cmap, xs, ys = fcast.stats_functions.find_data_colourmap(best_metric[~nas], omni_filtered[~nas], 300, xmin=200, xmax=800, ymin=200, ymax=800)
+            ax = axs1[i//4, i%4]
 
-            ax.pcolormesh(xs, ys, cmap.T, vmax=np.percentile(cmap,99.5), rasterized=True, cmap=cmocean.cm.solar)
+            if i//4 == 1:
+                ax.set_xlabel('Prediction',fontsize=8)
+            if i%4 == 0:
+                ax.set_ylabel('OMNI',fontsize=8)
 
-            #ax.scatter(wsa_filtered, omni_filtered, c = 'black', s = 0.1)
-            #ax.plot(hist_ref, c = 'black', linestyle = 'dashed')
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_xlim(200,800)
-            ax.set_ylim(200,800)
-            #ax.set_title(f"{make_nicetitle(i)} \n r = {r:.3f}, rms = {rms:.0f}, mae = {mae:.0f}, dist = {diffsim:.3f} \n ss_persist = {ss_persist:.2f}, score = {res:.2f}", fontsize = 8)
-            ax.set_title(f"{make_nicetitle(i)} \n r = {r:.3f}, rms = {rms:.0f}, ss = {res:.2f}")
-            #ax.set_ylim(-0.005,0.15)
 
-            print(np.array(allscores))
-
-        plt.tight_layout()
-
-        plt.savefig(f'./paper/plots/2a_pres_scatter_plots.png', dpi = 600)
-        plt.show()
-        plt.close()

@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from scipy.stats import pearsonr
 from scipy.optimize import minimize
 import cmocean
+import csv
 
 parameter_sources = ["combine", "combine"]
 scale_sources = ["WSA", "combine", "combine_optimised", "reference"]
@@ -38,13 +39,15 @@ plt.rcParams.update({
     "ytick.labelsize": 8,
 })
 
-fig_width = 4.5
+fig_width = 443.57848/72
 
 #To copy raw speeds from Hamilton
 
 # scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/raw_speeds/ ./data/
 
-for a in [0]:
+table_data = []
+
+for a in [1]:
     #bs = [0,1,2]
     allscores = []
     bs = [0]
@@ -98,7 +101,7 @@ for a in [0]:
                 source = "HMI"
 
             rss_string = "r_{ss}"
-            nicetitle = f"{model}, ${rss_string} = {rss}$, {source}"
+            nicetitle = f"{model}, \\ ${rss_string} = {rss}$, \\ {source}"
             return nicetitle
 
         ref_batch_name = f'{parameter_source}_{0}_{0}'
@@ -145,16 +148,15 @@ for a in [0]:
 
         batch_names = []
 
-        for i in range(8):
+        for i in range(0,8):
             batch_names.append(f'{parameter_source}_{a}_{i}')
 
         print(batch_names)
-        fig1, axs1 = plt.subplots(2,2, figsize=(fig_width,fig_width))
-        for ai, i in enumerate([4,5,6,7]):
-
-            batch_name = batch_names[i]
+        fig1, axs1 = plt.subplots(2,4, figsize=(fig_width,fig_width/2))
+        for i, batch_name in enumerate(batch_names[:]):
+            table_data.append([])
             if a == 1:
-                print("Using 'scaled' parameters")
+                #print("Using 'scaled' parameters")
                 batch_name = f"cma_{i}"
                 #Hopefully all things should be arranged nicely time-wise, but do need to check as much
                 data_fname = f'./data/raw_speeds/{batch_name}_wsa_combined_speeds.txt'
@@ -338,37 +340,116 @@ for a in [0]:
 
             res = np.sqrt(correlation_improvement*rms_improvement)
             allscores.append(res)
-            print('Res to beat:', res)
+            #print('Res to beat:', res)
 
-            print('Combined correlation, RMS, MAE, diff, and skillscores:',r, rms, mae, diffsim, ss_persist, ss_raw)
+            run_title = 'cma_data'
 
+            log_fname = f"./paper/data/{run_title}/log.csv"
+
+            run_num = i
+
+
+            bestscore = 1e6
+            bestrow = None
+            #Find base parameters giving the best scores
+            with open(f"./data/{run_title}/{run_num}_log.csv", "r", encoding="utf-8") as f:
+                log_data = csv.reader(f)
+                for row in log_data:
+                    if not row[0].isnumeric():
+                        continue
+                    score = float(row[1])
+                    if score < bestscore:
+                        bestscore = score
+                        bestrow = row
+            bestrow = np.array(bestrow, dtype='float')
+
+            #Convert these parameters into 'raw parameter space'.
+            #Requires the limits to be consistet throughout, but this can be stolen from compute_vr, I think.
+            parameter_set = np.zeros(9)
+            params = bestrow[2:]
+            scale_limits= np.loadtxt('./data/shared_data/wsa_limits.dat', delimiter = ',')
+
+            def scale_parameter(i, x):
+                return 0.5*(1.0 + np.tanh(x))*(scale_limits[i][1] - scale_limits[i][0]) + scale_limits[i][0]
+
+            parameter_set[0] = scale_parameter(0, params[0])
+            parameter_set[1] = scale_parameter(1, params[1])
+            parameter_set[2] = scale_parameter(2, params[2])
+            parameter_set[3] = scale_parameter(3, params[3])
+            parameter_set[4] = scale_parameter(4, params[4])
+            parameter_set[5] = scale_parameter(5, params[5])
+            parameter_set[6] = scale_parameter(6, params[6])
+            parameter_set[7] = scale_parameter(7, params[7])
+            parameter_set[8] = scale_parameter(8, params[8])
+
+
+            line_string = ''
+            line_string += make_nicetitle(i) + ' & '
+
+            #print('Combined correlation, RMS, MAE, diff, and skillscores:',r, rms, mae, diffsim, res)
             #print('Combined correlation, RMS, MAE and distribution similarity:',r, rms, mae, diffsim)
+            for pi in range(9):
+                if pi < 2:
+                    line_string += f"{parameter_set[pi]:.0f} & "
+                else:
+                    line_string += f"{parameter_set[pi]:.3f} & "
+                table_data[-1].append(parameter_set[pi])
 
-            ax = axs1[ai//2, ai%2]
+            #line_string += "str(r) + ' & ' + str(rms) + ' & ' + str(mae) + ' & ' + str(diffsim) + ' & ' + str(res) + ' // '"
+            line_string += f"{r:.3f} & {rms:.1f} & {res:.3f} \\ "
+            table_data[-1].append(r)
+            table_data[-1].append(rms)
+            table_data[-1].append(res)
 
-            if ai//2 == 1:
-                ax.set_xlabel('Prediction')
-            if ai%2 == 0:
-                ax.set_ylabel('OMNI')
+            ax = axs1[i//4, i%4]
 
-            cmap, xs, ys = fcast.stats_functions.find_data_colourmap(best_metric[~nas], omni_filtered[~nas], 300, xmin=200, xmax=800, ymin=200, ymax=800)
+            if i//4 == 1:
+                ax.set_xlabel('Prediction',fontsize=8)
+            if i%4 == 0:
+                ax.set_ylabel('OMNI',fontsize=8)
 
-            ax.pcolormesh(xs, ys, cmap.T, vmax=np.percentile(cmap,99.5), rasterized=True, cmap=cmocean.cm.solar)
+defaults = [285, 910, 2/9, 1.0, 0.8, 2, 2, 3, 1]
+#Make table data in nice format
+labs = ["$v_{\\rm slow}$ "," $v_{\\rm fast}$ "," $\\alpha$ "," $\\beta$ "," $\\gamma$ "," $\\omega$ "," $\\delta$ "," $i$ "," $\\nu$ "," $r$ "," RMS "," SS"]
 
-            #ax.scatter(wsa_filtered, omni_filtered, c = 'black', s = 0.1)
-            #ax.plot(hist_ref, c = 'black', linestyle = 'dashed')
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_xlim(200,800)
-            ax.set_ylim(200,800)
-            #ax.set_title(f"{make_nicetitle(i)} \n r = {r:.3f}, rms = {rms:.0f}, mae = {mae:.0f}, dist = {diffsim:.3f} \n ss_persist = {ss_persist:.2f}, score = {res:.2f}", fontsize = 8)
-            ax.set_title(f"{make_nicetitle(i)} \n r = {r:.3f}, rms = {rms:.0f}, ss = {res:.2f}")
-            #ax.set_ylim(-0.005,0.15)
+#Output title first. This may be tricky.
 
-            print(np.array(allscores))
+line_string = 'Parameter & Default &'
 
-        plt.tight_layout()
+titles = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
-        plt.savefig(f'./paper/plots/2a_pres_scatter_plots.png', dpi = 600)
-        plt.show()
-        plt.close()
+for i in range(8):
+    line_string += titles[i] + ' & '
+
+print(line_string)
+
+for row in range(9):
+    line_string = []
+    line_string = labs[row]
+    if row < 2:
+        line_string += f" & {defaults[row]:.0f} "
+    else:
+        line_string += f" & {defaults[row]:.3f} "
+
+    for i in range(8):
+        if row < 2:
+            line_string += f" & {table_data[i][row]:.0f} "
+        else:
+            line_string += f" & {table_data[i][row]:.3f} "
+    line_string += " \\ "
+    print(line_string)
+
+#Add on the r, rms and ss
+
+for row in range(9,12):
+    line_string = []
+    line_string = labs[row]
+    line_string += f" -- & "
+
+    for i in range(8):
+        if row < 2:
+            line_string += f" & {table_data[i][row]:.0f} "
+        else:
+            line_string += f" & {table_data[i][row]:.3f} "
+    line_string += " \\ "
+    print(line_string)
