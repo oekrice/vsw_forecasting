@@ -5,37 +5,65 @@ import numpy as np
 import os, sys
 import csv
 
+do_combine = True
 base_name = 'crot_fit'
-destination_fname = './data/shared_data/optimum_parameters.csv'
+run_title = 'cma_data'
+
+if not do_combine:
+    destination_fname = './data/shared_data/optimum_parameters.csv'
+    log_fname = f"./data/{run_title}/log.csv"
+else:
+    destination_fname = './data/shared_data/optimum_parameters_combine.csv'
+    log_fname = f"./data/{run_title}/log.csv"
 
 if os.path.exists(destination_fname):
     os.remove(destination_fname)
 
 for run_num in range(8):
 
-    run_title = 'cma_data'
-    #Copy log files from Hamilton
+    if not do_combine:
+        #Copy log files from Hamilton
+        if not os.path.exists(f"./data/{run_title}/{run_num}_log.csv"):
+            copy_command = f'scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{run_title}/{run_num}_log.csv ./data/{run_title}/'
+            if not os.path.exists(f"./data/{run_title}/"):
+                os.mkdir(f"./data/{run_title}/")
+            os.system(copy_command)
 
-    if not os.path.exists(f"./data/{run_title}/log.csv"):
-        copy_command = f'scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{run_title}/{run_num}_log.csv ./data/{run_title}/'
-        if not os.path.exists(f"./data/{run_title}/"):
-            os.mkdir(f"./data/{run_title}/")
-        os.system(copy_command)
+        bestscore = 1e6
+        bestrow = None
+        #Find base parameters giving the best scores
+        with open(f"./data/{run_title}/{run_num}_log.csv", "r", encoding="utf-8") as f:
+            log_data = csv.reader(f)
+            for row in log_data:
+                if not row[0].isnumeric():
+                    continue
+                score = float(row[1])
+                if score < bestscore:
+                    bestscore = score
+                    bestrow = row
+        bestrow = np.array(bestrow, dtype='float')
 
-    bestscore = 1e6
-    bestrow = None
-    #Find base parameters giving the best scores
-    with open(f"./data/{run_title}/{run_num}_log.csv", "r", encoding="utf-8") as f:
-        log_data = csv.reader(f)
-        for row in log_data:
-            if not row[0].isnumeric():
-                continue
-            score = float(row[1])
-            if score < bestscore:
-                bestscore = score
-                bestrow = row
-    bestrow = np.array(bestrow, dtype='float')
+    else:
+        #Copy log files from Hamilton
+        if not os.path.exists(f"./data/{run_title}/{run_num}_combine_log.csv"):
+            copy_command = f'scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/{run_title}/{run_num}_combine_log.csv ./data/{run_title}/'
+            if not os.path.exists(f"./data/{run_title}/"):
+                os.mkdir(f"./data/{run_title}/")
+            os.system(copy_command)
 
+        bestscore = 1e6
+        bestrow = None
+        #Find base parameters giving the best scores
+        with open(f"./data/{run_title}/{run_num}_combine_log.csv", "r", encoding="utf-8") as f:
+            log_data = csv.reader(f)
+            for row in log_data:
+                if not row[0].isnumeric():
+                    continue
+                score = float(row[1])
+                if score < bestscore:
+                    bestscore = score
+                    bestrow = row
+        bestrow = np.array(bestrow, dtype='float')
     #Convert these parameters into 'raw parameter space'.
     #Requires the limits to be consistet throughout, but this can be stolen from compute_vr, I think.
     parameter_set = np.zeros(9)

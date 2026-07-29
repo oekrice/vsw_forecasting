@@ -32,10 +32,10 @@ scale_sources = ["WSA", "combine", "combine_optimised", "reference"]
 
 # scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/data/raw_speeds/ ./data/
 
-for a in [1]:
+for a in [0]:
     #bs = [0,1,2]
     allscores = []
-    bs = [0,1,2,3]
+    bs = [1]
     if a == 0:
         source_title = "Default Parameters"
     elif a == 1:

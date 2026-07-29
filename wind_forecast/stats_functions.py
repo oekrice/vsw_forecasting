@@ -7,6 +7,7 @@ import astropy.units as u
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from scipy.stats import wasserstein_distance
+from scipy.ndimage import gaussian_filter
 
 class VelocityNet():
     """
@@ -242,6 +243,17 @@ def find_data_colourmap(xdata, ydata, npoints, xmin=None, xmax=None, ymin=None, 
             colormesh[x_index, y_index] += 1  #Don't really care if they're out of bounds
         except:
             pass
+
+    #Sometimes get annoying outliers here
+    colormesh[0,:] = 0.0
+    colormesh[-1,:] = 0.0
+    colormesh[:,0] = 0.0
+    colormesh[:,-1] = 0.0
+
+    colormesh = (np.log(colormesh + 1))**0.5 #Arbitrary scaling to make it look nice
+    if True:  #Do some smoothing
+        colormesh = gaussian_filter(colormesh, sigma=0.75)
+
     return colormesh, xs, ys
 
 
