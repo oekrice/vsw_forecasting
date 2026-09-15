@@ -171,6 +171,7 @@ for a in [0]:
 
             timeseries = np.loadtxt(f'./data/raw_speeds/{batch_name}_wsa_combined_times.txt', dtype='datetime64[s]', delimiter = ',')
 
+            print('RAW FNAME:', f'./data/raw_speeds/{batch_name}_wsa_combined_times.txt')
             omni_shift = np.nan*omni
             omni_shift[persistence_time_int:] = omni[:-persistence_time_int]
 

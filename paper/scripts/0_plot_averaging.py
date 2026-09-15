@@ -15,6 +15,7 @@ from dtaidistance import dtw
 import random
 from scipy.optimize import minimize
 from scipy.stats import pearsonr
+import matplotlib.dates as mdates
 
 #Matplotlib preamble (should use on all plots really for consistency)
 plt.rcParams.update({
@@ -169,7 +170,7 @@ def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0
             alltimes.append(times)
             allspeeds.append(model_speeds)
             allspeeds_ref.append(omni_speeds)
-            ax.plot(times, model_speeds, linewidth=0.2, c = 'green', alpha=0.2)
+            ax.plot(times, model_speeds, linewidth=0.4, c = 'green', alpha=0.2)
 
             #Use the map from the middle of the rotatio
             if snap_id == int((max(snap_subset) - min(snap_subset))/2 + min(snap_subset)):
@@ -178,9 +179,9 @@ def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0
         times_avg, wsa = wf.stats_functions.get_average_speeds(alltimes, allspeeds, spinup_time =run_parameters["spinup_time"], cadence = 24, verbose=False)
         _, omni = wf.stats_functions.get_average_speeds(alltimes, allspeeds_ref, spinup_time =run_parameters["spinup_time"], cadence = 24, verbose=False)
 
-        ax.plot(times_avg, wsa, linewidth = 2, c = 'green', label = 'VSW Prediction')
+        ax.plot(times_avg, wsa, linewidth = 1, c = 'green', label = '$v_{sw}$ Prediction')
 
-        ax.plot(times_avg, omni, linewidth = 2, c = 'black', label = 'OMNI Measurements')
+        ax.plot(times_avg, omni, linewidth = 0.75, c = 'black', label = 'OMNI Measurements')
         #ax.set_xlim(np.nanmin(times_avg), np.nanmax(times_avg))
         #ax.set_ylim(np.nanmin(omni)*0.9, np.nanmax(omni)*1.1)
 
@@ -278,17 +279,18 @@ else:
 
 iteration_number = 0
 
-fig, ax = plt.subplots(1,1, figsize=(fig_width,fig_width*0.6))
+fig, ax = plt.subplots(1,1, figsize=(fig_width,fig_width*0.5))
 
 #Run through vanilla WSA, Otpimised WSA and Neural Net. To make the point.
 
 
 run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
-if len(sys.argv) > 1:
-    batch_id = int(sys.argv[1])
-else:
-    raise Exception('Specify batch number.')
+# if len(sys.argv) > 1:
+#     batch_id = int(sys.argv[1])
+# else:
+#     raise Exception('Specify batch number.')
+batch_id = 0
 
 #Get the model setup depending on the batch numbers
 if (batch_id//2)%2 == 0:
@@ -358,21 +360,21 @@ if not os.path.exists(f"./data/{test_parameters['run_name']}"):
 np.savetxt(f"./data/{test_parameters['run_name']}/start.dat", [n_cores])
 print('Running job with name', test_parameters['run_name'], 'using data', test_parameters['base_name'])
 
-scores, sigmas, thetas = load_directory()
+#scores, sigmas, thetas = load_directory()
 
 # while len(sigmas) < iteration_number + 1:
 #     time.sleep(1.0)
 
-if iteration_number == -1:
-    best_index = np.where(scores == np.min(scores))[0][0]
-else:
-    #This depends. Want the plotting code not to fail miserably.
-    if model_type == 2:
-        best_index = min(len(sigmas)-1, iteration_number*2)
-    else:
-        best_index = min(len(sigmas)-1, iteration_number)
-
-theta = thetas[best_index]
+# if iteration_number == -1:
+#     best_index = np.where(scores == np.min(scores))[0][0]
+# else:
+#     #This depends. Want the plotting code not to fail miserably.
+#     if model_type == 2:
+#         best_index = min(len(sigmas)-1, iteration_number*2)
+#     else:
+#         best_index = min(len(sigmas)-1, iteration_number)
+#
+theta = None#thetas[best_index]
 
 if set_type == 'good':
     snap_start = 108
@@ -392,17 +394,23 @@ print('Range:', snap_start, snap_end)
 print('Current skillscore', skillscore)
 
 ax.set_xlabel('Time')
-ax.set_ylabel('Wind Speed')
-plt.setp(ax.get_xticklabels(), rotation=30, ha = "right")
+ax.set_ylabel('Solar Wind Speed ($km/s$)')
+ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%d %b'))
+
+plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
 
 axes_ymin, _ = ax.get_ylim()
 for obs_time in obs_times[snap_start:snap_end]:
-    ax.scatter(obs_time, axes_ymin + 5, c = 'red', edgecolor='black', s = 10.0)
+    ax.scatter(obs_time, axes_ymin + 5, c = 'red', edgecolor='black', s = 10.0, linewidth=0.2)
 # ax.set_xticks([])
 # ax.set_yticks([])
 
-#plt.legend(fontsize=12)
+plt.legend(fontsize=12, loc='upper left')
+
+
+#plt.legend()
 plt.tight_layout()
-# plt.show()
-plt.savefig(f'./paper/plots/0_plot_averaging.pdf')
+plt.savefig(f'./paper/plots/0_plot_averaging.pdf', bbox_inches="tight")
+plt.show()
 plt.close()

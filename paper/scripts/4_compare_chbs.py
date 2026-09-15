@@ -16,6 +16,7 @@ import time
 from scipy.stats import pearsonr
 
 import matplotlib
+import cmocean
 
 plt.rcParams.update({
     "text.usetex": True,
@@ -49,12 +50,13 @@ run_names = ["p2g", "p5g", "o2g", "o5g", "p2h", "p5h", "o2h", "o5h"]
 
 base_selection = 3
 batch_bases = ["wsa", "wsa_nocmes", "rms_nocmes", "corr_nocmes"]
-titles1 = ["Default WSA", "Velocities Optimised for Distributions", "Velocities Optimised for RMS", "Velocities Optimised for Correlation"]
 
 batch_base = batch_bases[base_selection]
-title1 = titles1[base_selection]
 
 def make_nicetitle(id):
+
+    letters = ["Set (A):", "Set (B):", "Set (C):", "Set (D):", "Set (E):", "Set (F):", "Set (G):", "Set (H):"]
+
     if (id//2)%2 == 0:
         is_pfss = True
         model = "PFSS"
@@ -71,7 +73,7 @@ def make_nicetitle(id):
         source = "HMI"
 
     rss_string = "r_{ss}"
-    nicetitle = f"{model}, ${rss_string} = {rss}$, {source}"
+    nicetitle = f"{letters[id]} \n"
     return nicetitle
 
 if False:   #Compile and save the data
@@ -145,8 +147,8 @@ if False:   #Compile and save the data
             snap_id = int(snap_id)
             #print(snap_id/len(obs_times))
             s0, ph0, br0, fs, chd = fcast.data_functions.load_chb_distances(run_name, snap_id)
-            allchds = allchds + list(chd[60:120,:].flatten()[::100])
-            allfs = allfs + list(fs[60:120,:].flatten()[::100])
+            allchds = allchds + list(chd[60:120,:].flatten()[::50])
+            allfs = allfs + list(fs[60:120,:].flatten()[::50])
             del s0, ph0, br0, fs, chd
 
         print('Data length', len(allchds))
@@ -162,8 +164,7 @@ else:   #Analyse the data
     fig1, axs1 = plt.subplots(2,4, figsize=(fig_width, fig_width/2))
     for plot_num, batch_id in enumerate(np.arange(0,8)):
 
-
-        chb = np.load(f'./paper/data/factor_comparison/chds_{plot_num}.npy')
+        chb = np.load(f'./data/factor_comparison/chds_{plot_num}.npy')
 
         ax = axs1[plot_num//4, plot_num%4]
 
@@ -171,8 +172,12 @@ else:   #Analyse the data
         ax.set_yticks([])
         r, _ = pearsonr(chb, chb_ref)
         bias = np.mean(chb)/np.mean(chb_ref)
-        ax.set_title(f"{make_nicetitle(plot_num)}, \n r = {r:.3f}, bias = {bias:.3f}")
-        ax.scatter(chb_ref, chb, alpha = 0.1, c = 'blue', s = 0.1, rasterized=True)
+        ax.set_title(f"{make_nicetitle(plot_num)} r = {r:.3f}, bias = {bias:.3f}")
+
+        cmap, xs, ys = fcast.stats_functions.find_data_colourmap(chb_ref, chb, 300)
+
+        ax.pcolormesh(xs, ys, cmap.T, vmax=np.percentile(cmap,99.9), rasterized=True, cmap=cmocean.cm.thermal)
+
         chb_biases.append(bias)
 
     plt.tight_layout()

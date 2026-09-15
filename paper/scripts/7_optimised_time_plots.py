@@ -19,6 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import drms
+import csv
 import wind_forecast as fcast
 from scipy.ndimage import gaussian_filter1d
 from datetime import datetime, timedelta
@@ -37,6 +38,62 @@ plt.rcParams.update({
     "xtick.labelsize": 12,
     "ytick.labelsize": 8,
 })
+
+#Just need to establish a linear relation date to sunspot number, really.
+sunspot_dates = []
+sunspot_numbers = []
+
+with open("./data/shared_data/sunspot_numbers.csv", "r") as f:
+    data = csv.reader(f)
+    for row in data:
+        rowsplit = row[0].split(';')
+        sunspot_dates.append(float(rowsplit[2]))
+        sunspot_numbers.append(float(rowsplit[3]))
+
+def get_crot_limits():
+    #Obtains the times for the Carrington rotations. Bastardised code from elsewhere, but it should do.
+
+    try:
+        c = drms.Client()
+        #Find the correct Carrington Rotation for this date.
+        crot_times_mdi = c.query(('mdi.synoptic_mr_polfil_96m'), key = ["T_START","T_STOP","CAR_ROT"])
+        crot_times_hmi = c.query(('hmi.synoptic_mr_polfil_720s'), key = ["T_START","T_STOP","CAR_ROT"])
+    except:
+        raise Exception("Failed to find the Carrington Rotation database")
+
+    start_times = []
+    end_times = []
+    centre_times = []
+    crot_numbers = []
+    for source, crot_times in enumerate([crot_times_mdi, crot_times_hmi]):
+        start_times_raw = list(crot_times.pop("T_START"))
+        for i in range(len(start_times_raw)):
+            if start_times_raw[i][-6:-4] == "60":
+                start_times_raw[i] = start_times_raw[i][:-6] + "00" + start_times_raw[i][-4:]
+        end_times_raw = list(crot_times.pop("T_STOP"))
+        for i in range(len(end_times_raw)):
+            if end_times_raw[i][-6:-4] == "60":
+                end_times_raw[i] = end_times_raw[i][:-6] + "00" + end_times_raw[i][-4:]
+
+        for si, crot_number in enumerate(crot_times.pop("CAR_ROT")):
+            if (crot_number < 2098 and source == 0) or (crot_number >= 2098 and source == 1):
+                start_times.append(datetime.strptime(start_times_raw[si].split('_TAI')[0], "%Y.%m.%d_%H:%M:%S"))
+                end_times.append(datetime.strptime(end_times_raw[si].split('_TAI')[0], "%Y.%m.%d_%H:%M:%S"))
+                centre_times.append(0.5*(start_times[-1] - end_times[-1]) + start_times[-1])
+                crot_numbers.append(crot_number)
+
+    return np.array(crot_numbers), np.array(start_times)
+
+crot_numbers, crot_starts = get_crot_limits()  #Just do this once.
+crot_mids = crot_starts + timedelta(days=13.85)
+
+def decimal_year(dt):
+    start = datetime(dt.year, 1, 1)
+    end = datetime(dt.year + 1, 1, 1)
+    return dt.year + (dt - start).total_seconds() / (end - start).total_seconds()
+
+crot_years = np.array([decimal_year(dt) for dt in crot_mids])
+sunspot_numbers = np.array(sunspot_numbers)
 
 fig_width = 443.57848/72
 
@@ -116,6 +173,9 @@ for a in [1]:
         scales = []
 
         def make_nicetitle(id):
+
+            letters = ["Set (A):", "Set (B):", "Set (C):", "Set (D):", "Set (E):", "Set (F):", "Set (G):", "Set (H):"]
+
             if (id//2)%2 == 0:
                 is_pfss = True
                 model = "PFSS"
@@ -132,8 +192,13 @@ for a in [1]:
                 source = "HMI"
 
             rss_string = "r_{ss}"
-            nicetitle = f"{model}, ${rss_string} = {rss}$, {source}"
-            return nicetitle
+            if id == 0:
+                return 'Set (A): PFSS Model'
+            if id == 7:
+                return 'Set (H): Outflow Model'
+
+            # nicetitle = f"{model}, ${rss_string} = {rss}$, {source}"
+            # return nicetitle
 
         ref_batch_name = f'{parameter_source}_{0}_{0}'
         omni_fname = f'./paper/data/raw_speeds/{ref_batch_name}_wsa_combined_speeds_ref.txt'
@@ -182,7 +247,7 @@ for a in [1]:
 
         plotted_omni = False
         fig, axs = plt.subplots(2, figsize = (fig_width,0.6*fig_width))
-        for i in [4,5,6,7]:
+        for i in [0,7]:
 
             batch_name = batch_names[i]
             #Hopefully all things should be arranged nicely time-wise, but do need to check as much
@@ -376,26 +441,6 @@ for a in [1]:
 
                 return r, rms
 
-            def make_nicetitle(id):
-                if (id//2)%2 == 0:
-                    is_pfss = True
-                    model = "PFSS"
-                else:
-                    is_pfss = False
-                    model = "Outflow"
-                if (id%2) == 0:
-                    rss = 2.5
-                else:
-                    rss = 5.0
-                if (id//4) == 0:
-                    source = "GONG"
-                else:
-                    source = "HMI"
-
-                rss_string = "r_{ss}"
-                nicetitle = f"{model}, ${rss_string} = {rss}$, {source}"
-                return nicetitle
-
             if scale_source == "WSA":
                 best_metric =  wsa_filtered
             elif scale_source == "combine":
@@ -417,9 +462,17 @@ for a in [1]:
                     r, rms = do_crot_stats_average(ci, omni_shift_filtered, omni_filtered, timeseries, crot, crot_starts)
                     all_rmss[ci] = rms
                     all_rs[ci] = r
-                axs[0].plot(crot_numbers[start_plot_cut:-end_plot_cut], all_rmss[start_plot_cut:-end_plot_cut], c = 'black', linestyle='dashed',linewidth=1.0)
-                axs[1].plot(crot_numbers[start_plot_cut:-end_plot_cut], all_rs[start_plot_cut:-end_plot_cut], label = 'Persistence', linestyle='dashed', c = 'black', linewidth=1.0)
+                axs[0].plot(crot_years[start_plot_cut:-end_plot_cut], all_rmss[start_plot_cut:-end_plot_cut], c = 'black', linestyle='dashed',linewidth=1.0)
+                axs[1].plot(crot_years[start_plot_cut:-end_plot_cut], all_rs[start_plot_cut:-end_plot_cut], label = 'Persistence', linestyle='dashed', c = 'black', linewidth=1.0)
                 plotted_omni=True
+
+                #Add sunspot numbers
+                axs[0].fill_between(sunspot_dates, np.nanmax(all_rmss[start_plot_cut:-end_plot_cut])*sunspot_numbers/np.max(sunspot_numbers), color = 'grey', alpha=0.5)
+                axs[1].fill_between(sunspot_dates, np.nanmax(all_rs[start_plot_cut:-end_plot_cut])*sunspot_numbers/np.max(sunspot_numbers), color = 'grey', alpha=0.5)
+
+                # axs[0].plot(sunspot_dates, np.nanmax(all_rmss[start_plot_cut:-end_plot_cut])*sunspot_numbers/np.max(sunspot_numbers))
+                # axs[1].plot(sunspot_dates, np.nanmax(all_rs[start_plot_cut:-end_plot_cut])*sunspot_numbers/np.max(sunspot_numbers))
+
             #Best_metric is what we're comparing against, no matter what. Need to now do stats on each Carrington rotation.
             #I'll try to do this without being clever, but if it's too slow might have to be clever. Let's see.
             all_rmss = np.nan*crot_numbers
@@ -429,12 +482,16 @@ for a in [1]:
                 all_rmss[ci] = rms
                 all_rs[ci] = r
 
-            axs[0].plot(crot_numbers[start_plot_cut:-end_plot_cut], all_rmss[start_plot_cut:-end_plot_cut], linewidth=1.0)
-            axs[0].set_ylabel('RMS')
+            axs[0].plot(crot_years[start_plot_cut:-end_plot_cut], all_rmss[start_plot_cut:-end_plot_cut], linewidth=1.0)
+            axs[0].set_ylabel('RMS ($km/s$)')
             axs[0].set_xticks([])
-            axs[1].plot(crot_numbers[start_plot_cut:-end_plot_cut], all_rs[start_plot_cut:-end_plot_cut], label = make_nicetitle(i), linewidth=1.0)
+            axs[1].plot(crot_years[start_plot_cut:-end_plot_cut], all_rs[start_plot_cut:-end_plot_cut], label = make_nicetitle(i), linewidth=1.0)
             axs[1].set_ylabel('Correlation $r$')
-            axs[1].set_xlabel('Carrington Rotation')
+            axs[1].set_xlabel('Year')
+
+            #print('Optimum factor', optimum_factor.x)
+            axs[0].set_xlim(2009.75, 2025.25)
+            axs[1].set_xlim(2009.75, 2025.25)
 
             #print('Optimum factor', optimum_factor.x)
 
@@ -464,7 +521,7 @@ for a in [1]:
         fig.legend(handles, labels,
            loc="lower center",
            ncol=3,                  # adjust as needed
-           bbox_to_anchor=(0.5, -0.0), fontsize=8)
+           bbox_to_anchor=(0.5, 0.05), fontsize=8)
 
         plt.tight_layout(rect=[0, 0.08, 1, 1])
         plt.savefig(f'./paper/plots/7_optimised_time_plot.pdf')

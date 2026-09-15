@@ -369,6 +369,6 @@ for a in [0]:
 
         plt.tight_layout()
 
-        plt.savefig(f'./paper/plots/8_combine_plots.pdf')
+        #plt.savefig(f'./paper/plots/8_combine_plots.pdf')
         plt.show()
         plt.close()

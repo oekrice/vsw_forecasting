@@ -34,8 +34,8 @@ plt.rcParams.update({
     "font.size": 12,        # Default font size
     "axes.labelsize": 12,
     "axes.titlesize": 8,
-    "xtick.labelsize": 12,
-    "ytick.labelsize": 8,
+    "xtick.labelsize": 6,
+    "ytick.labelsize": 6,
 })
 
 fig_width = 443.57848/72
@@ -82,6 +82,8 @@ for a in [0]:
         scales = []
 
         def make_nicetitle(id):
+
+            letters = ["Set (A):", "Set (B):", "Set (C):", "Set (D):", "Set (E):", "Set (F):", "Set (G):", "Set (H):"]
             if (id//2)%2 == 0:
                 is_pfss = True
                 model = "PFSS"
@@ -98,7 +100,8 @@ for a in [0]:
                 source = "HMI"
 
             rss_string = "r_{ss}"
-            nicetitle = f"{model}, ${rss_string} = {rss}$, {source}"
+            nicetitle = f"{letters[id]} {model} \n ${rss_string} = {rss}$, {source}"
+            #return letters[id]
             return nicetitle
 
         ref_batch_name = f'{parameter_source}_{0}_{0}'
@@ -346,28 +349,33 @@ for a in [0]:
             ax = axs1[i//4, i%4]
 
             if i//4 == 1:
-                ax.set_xlabel('Prediction',fontsize=8)
+                ax.set_xlabel('Prediction (km/s)',fontsize=8)
+            else:
+                ax.set_xticks([])
             if i%4 == 0:
-                ax.set_ylabel('OMNI',fontsize=8)
+                ax.set_ylabel('OMNI (km/s)',fontsize=8)
+            else:
+                ax.set_yticks([])
 
             cmap, xs, ys = fcast.stats_functions.find_data_colourmap(best_metric[~nas], omni_filtered[~nas], 300, xmin=200, xmax=800, ymin=200, ymax=800)
 
-            ax.pcolormesh(xs, ys, cmap.T, vmax=np.percentile(cmap,99.5), rasterized=True, cmap=cmocean.cm.solar)
+            cmap = cmap**2
+            ax.pcolormesh(xs, ys, cmap.T, vmax=np.percentile(cmap,99.5), rasterized=True, cmap=cmocean.cm.thermal)
 
             #ax.scatter(wsa_filtered, omni_filtered, c = 'black', s = 0.1)
             #ax.plot(hist_ref, c = 'black', linestyle = 'dashed')
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_xlim(200,800)
-            ax.set_ylim(200,800)
+
+
+            ax.set_xlim(250,800)
+            ax.set_ylim(250,800)
             #ax.set_title(f"{make_nicetitle(i)} \n r = {r:.3f}, rms = {rms:.0f}, mae = {mae:.0f}, dist = {diffsim:.3f} \n ss_persist = {ss_persist:.2f}, score = {res:.2f}", fontsize = 8)
-            ax.set_title(f"{make_nicetitle(i)} \n r = {r:.3f}, rms = {rms:.0f}, ss = {res:.2f}", fontsize=6)
+            ax.set_title(f"{make_nicetitle(i)}")# SS = {res:.2f} \n RMS = {rms:.0f}, r = {r:.2f} ", fontsize=6)
             #ax.set_ylim(-0.005,0.15)
 
             print(np.array(allscores))
 
         plt.tight_layout()
 
-        plt.savefig(f'./paper/plots/2_default_scatter_plots.pdf')
+        plt.savefig(f'./paper/plots/2_default_scatter_plots.pdf', dpi=600, bbox_inches="tight")
         plt.show()
         plt.close()

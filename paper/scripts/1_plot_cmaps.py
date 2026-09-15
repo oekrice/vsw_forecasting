@@ -19,6 +19,11 @@ from scipy.optimize import minimize
 from scipy.stats import pearsonr
 import cmocean
 
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
+
+import matplotlib as mpl
+
 #Matplotlib preamble (should use on all plots really for consistency)
 plt.rcParams.update({
     "text.usetex": True,
@@ -26,8 +31,8 @@ plt.rcParams.update({
     "font.size": 12,        # Default font size
     "axes.labelsize": 12,
     "axes.titlesize": 12,
-    "xtick.labelsize": 12,
-    "ytick.labelsize": 12,
+    "xtick.labelsize": 6,
+    "ytick.labelsize": 6,
 })
 import matplotlib
 #matplotlib.use('Agg')
@@ -171,7 +176,7 @@ def run_model_combined(run_parameters, theta=None, snap_subset=None, iteration=0
 
             #Use the map from the middle of the rotatio
             global_vr = vr
-            ax_row[0].pcolormesh(vr)
+            #ax_row[0].pcolormesh(vr)
 
         return vr, chb, fs
 
@@ -226,8 +231,9 @@ else:
 #Can specify file name to look up WSA parameters? Yeah, probably.
 
 iteration_number = 0
+mappables = [None, None, None]
 
-fig, axs = plt.subplots(2,3, figsize=(fig_width,fig_width*0.5))  #This one is now for colourmaps
+fig, axs = plt.subplots(2,3, figsize=(fig_width,fig_width*0.5), constrained_layout=True)  #This one is now for colourmaps
 
 #Run through vanilla WSA, Otpimised WSA and Neural Net. To make the point.
 
@@ -304,22 +310,47 @@ for bi, batch_id in enumerate([0,7]):
 
     vr, chbs, fs = run_model_combined(test_parameters, snap_subset=snap_subset)
 
-    print(np.shape(vr))
-
+    print(np.shape(vr), np.shape(chbs), np.shape(fs))
+    xs = np.linspace(-180,180,361)
+    ys = np.linspace(-90,90,181)
     toplots = [chbs, fs, vr]
     vmins = [0,0,250]
-    vmaxs = [10,200,850]
+    vmaxs = [10,300,850]
     for i in range(3):
-        ax_row[i].pcolormesh(toplots[i], vmin=vmins[i], vmax=vmaxs[i], rasterized=True, cmap=cmocean.cm.solar)
+        ax_row[i].pcolormesh(xs, ys, toplots[i], vmin=vmins[i], vmax=vmaxs[i], rasterized=True, cmap=cmocean.cm.solar)
 
-    for i in range(3):
-        ax_row[i].set_xticks([])
+    for i in range(1,3):
         ax_row[i].set_yticks([])
+
+    if bi == 0:
+        for i in range(3):
+            ax_row[i].set_xticks([])
 
     if bi == 0:
         ax_row[0].set_title('CH Boundary Distance')
         ax_row[1].set_title('Expansion Factor')
         ax_row[2].set_title('WSA Velocity')
+
+
+
+for i in range(3):
+    norm = mpl.colors.Normalize(vmin=vmins[i], vmax=vmaxs[i])
+
+    sm = mpl.cm.ScalarMappable(
+        norm=norm,
+        cmap=cmocean.cm.solar
+    )
+    sm.set_array([])
+
+    cbar = fig.colorbar(
+        sm,
+        ax=axs[:, i],
+        orientation='horizontal',
+        location='bottom',
+        aspect=20,
+        pad = 0.01
+    )
+
 # ax.set_xlabel('Time')
 # ax.set_ylabel('Wind Speed')
 # plt.setp(ax.get_xticklabels(), rotation=30, ha = "right")
@@ -328,7 +359,6 @@ for bi, batch_id in enumerate([0,7]):
 # ax.set_yticks([])
 
 #plt.legend(fontsize=12)
-plt.tight_layout()
-plt.savefig(f'./paper/plots/1_plot_cmaps.pdf')
+plt.savefig(f'./paper/plots/1_plot_cmaps.pdf', dpi=300, bbox_inches="tight")
 plt.show()
 plt.close()

@@ -9,6 +9,7 @@ import csv
 import time
 import multiprocessing as mp
 from datetime import datetime, timedelta
+import matplotlib.dates as mdates
 
 import wind_forecast as wf  #This should now contain everything we need...
 from dtaidistance import dtw
@@ -17,6 +18,7 @@ from scipy.optimize import minimize
 from scipy.stats import pearsonr
 
 import matplotlib
+import matplotlib as mpl
 import cmocean
 
 #matplotlib.use('Agg')
@@ -26,10 +28,10 @@ import cmocean
 plt.rcParams.update({
     "text.usetex": True,
     "font.family": "serif",
-    "font.size": 12,        # Default font size
-    "axes.labelsize": 12,
+    "font.size": 10,        # Default font size
+    "axes.labelsize": 8,
     "axes.titlesize": 8,
-    "xtick.labelsize": 12,
+    "xtick.labelsize": 8,
     "ytick.labelsize": 8,
 })
 
@@ -388,6 +390,8 @@ for model_type in range(3):
         snap_start = 27
         snap_end = 54
 
+    # snap_end = 109
+
     valid_snaps = np.arange(snap_start, snap_end)#np.arange(len(obs_times))#[1-cme_mask]
     snap_subset = valid_snaps
     if model_type > 0:
@@ -403,16 +407,47 @@ for model_type in range(3):
     ax.set_xticks([])
     ax.set_yticks([])
 
+    if model_type > 1:
+        ax.set_yticks([])
+
+    xs = np.linspace(-180,180,361)
+    ys = np.linspace(-90,90,181)
+
+
+    #ax.set_xlabel('Time')
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=10))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d %b'))
+
+    if model_type == 0:
+        ax.set_ylabel('$v_{sw}$ ($km/s$)')
 
     ax = axs[0, model_type]
-    ax.pcolormesh(global_vr, vmin=200, vmax=900, rasterized=True, cmap=cmocean.cm.solar)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_title(f'{titles[model_type]} \n r = {global_r:.2f}, rms = {global_rms:.1f}', fontsize=12)
+    ax.pcolormesh(xs, ys, global_vr, vmin=200, vmax=1000, rasterized=True, cmap=cmocean.cm.solar)
 
+    if model_type > 1:
+        ax.set_yticks([])
+
+    ax.set_title(f'{titles[model_type]} \n r = {global_r:.2f}, RMS = {global_rms:.1f} km/s', fontsize=8)
+
+for i in range(3):
+    norm = mpl.colors.Normalize(vmin=200, vmax=1000)
+
+    sm = mpl.cm.ScalarMappable(
+        norm=norm,
+        cmap=cmocean.cm.solar
+    )
+    sm.set_array([])
+
+    cbar = fig.colorbar(
+        sm,
+        ax=axs[1, i],
+        orientation='horizontal',
+        location='bottom',
+        aspect=20,
+        pad = 0.25
+    )
 
 #plt.legend(fontsize=12)
-plt.tight_layout()
-plt.savefig(f'./paper/plots/5_plot_optimisation.pdf')
+plt.savefig(f'./paper/plots/5_plot_optimisation.pdf', dpi=600, bbox_inches="tight")
 plt.show()
 plt.close()

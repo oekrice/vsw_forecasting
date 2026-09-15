@@ -1,27 +1,15 @@
-#This has now become (as predicted) an unweildy mess.
-#I'm going to attempt to write what all the options and processes are. Bear with.
 
-"""
-There are two stages for processing the data.
 
-The first, which we shall call 'optimisation', is when the parameters in the WSA model (or potentially a neural net) are modified to fit either a distribution, rms, or something else entirely.
 
-The second, which we shall call 'scaling', is how the output velocities can be scaled to minimise something else. This (so far) can be rms, skill score, or potentially distributions.
-
-Today, I'd like to generalise this so it works nicely. Alas the 'unscaled' raw wsa speeds don't follow the same pattern as everything else, for reasons. Perhaps we should change that.
-
-Either way, the data can all be read in AT THE START, and cehcekd for consistency etc., before various plots can be made resulting from them.
-
-I'm adding to this file to look into comparisons with the persistence model. If it is well-correlated, then it might be really good to take a combination of persistence PLUS any information given by the VSW predictions (difference in one month to the next, perhaps, and scaled?)
-"""
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import drms
 import wind_forecast as fcast
+import csv
 from scipy.ndimage import gaussian_filter1d
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from scipy.stats import pearsonr
 from scipy.optimize import minimize
 
@@ -37,6 +25,17 @@ plt.rcParams.update({
     "xtick.labelsize": 12,
     "ytick.labelsize": 8,
 })
+
+#Just need to establish a linear relation date to sunspot number, really.
+sunspot_dates = []
+sunspot_numbers = []
+
+with open("./data/shared_data/sunspot_numbers.csv", "r") as f:
+    data = csv.reader(f)
+    for row in data:
+        rowsplit = row[0].split(';')
+        sunspot_dates.append(float(rowsplit[2]))
+        sunspot_numbers.append(float(rowsplit[3]))
 
 fig_width = 443.57848/72
 
@@ -77,7 +76,16 @@ def get_crot_limits():
 #To copy raw speeds from Hamilton
 
 # scp -r vgjn10@hamilton8.dur.ac.uk:/nobackup/vgjn10/projects/vsw_forecasting/paper/data/raw_speeds/combine_* ./paper/data/raw_speeds
-crot_numbers, crot_starts = get_crot_limits()  #Just do this once, whatever.
+crot_numbers, crot_starts = get_crot_limits()  #Just do this once.
+crot_mids = crot_starts + timedelta(days=13.85)
+
+def decimal_year(dt):
+    start = datetime(dt.year, 1, 1)
+    end = datetime(dt.year + 1, 1, 1)
+    return dt.year + (dt - start).total_seconds() / (end - start).total_seconds()
+
+crot_years = np.array([decimal_year(dt) for dt in crot_mids])
+sunspot_numbers = np.array(sunspot_numbers)
 
 for a in [0]:
     #bs = [0,1,2]
@@ -116,6 +124,9 @@ for a in [0]:
         scales = []
 
         def make_nicetitle(id):
+
+            letters = ["Set (A):", "Set (B):", "Set (C):", "Set (D):", "Set (E):", "Set (F):", "Set (G):", "Set (H):"]
+
             if (id//2)%2 == 0:
                 is_pfss = True
                 model = "PFSS"
@@ -132,8 +143,13 @@ for a in [0]:
                 source = "HMI"
 
             rss_string = "r_{ss}"
-            nicetitle = f"{model}, ${rss_string} = {rss}$, {source}"
-            return nicetitle
+            if id == 0:
+                return 'Set (A): PFSS Model'
+            if id == 7:
+                return 'Set (H): Outflow Model'
+
+            # nicetitle = f"{model}, ${rss_string} = {rss}$, {source}"
+            # return nicetitle
 
         ref_batch_name = f'{parameter_source}_{0}_{0}'
         omni_fname = f'./paper/data/raw_speeds/{ref_batch_name}_wsa_combined_speeds_ref.txt'
@@ -182,7 +198,7 @@ for a in [0]:
 
         plotted_omni = False
         fig, axs = plt.subplots(2, figsize = (fig_width,0.6*fig_width))
-        for i in [4,5,6,7]:
+        for i in [0,7]:
 
             batch_name = batch_names[i]
             #Hopefully all things should be arranged nicely time-wise, but do need to check as much
@@ -376,25 +392,6 @@ for a in [0]:
 
                 return r, rms
 
-            def make_nicetitle(id):
-                if (id//2)%2 == 0:
-                    is_pfss = True
-                    model = "PFSS"
-                else:
-                    is_pfss = False
-                    model = "Outflow"
-                if (id%2) == 0:
-                    rss = 2.5
-                else:
-                    rss = 5.0
-                if (id//4) == 0:
-                    source = "GONG"
-                else:
-                    source = "HMI"
-
-                nicetitle = f"{model}, r_ss = {rss}, {source}"
-                return nicetitle
-
             if scale_source == "WSA":
                 best_metric =  wsa_filtered
             elif scale_source == "combine":
@@ -416,9 +413,17 @@ for a in [0]:
                     r, rms = do_crot_stats_average(ci, omni_shift_filtered, omni_filtered, timeseries, crot, crot_starts)
                     all_rmss[ci] = rms
                     all_rs[ci] = r
-                axs[0].plot(crot_numbers[start_plot_cut:-end_plot_cut], all_rmss[start_plot_cut:-end_plot_cut], c = 'black', linestyle='dashed',linewidth=1.0)
-                axs[1].plot(crot_numbers[start_plot_cut:-end_plot_cut], all_rs[start_plot_cut:-end_plot_cut], label = 'Persistence', linestyle='dashed', c = 'black', linewidth=1.0)
+                axs[0].plot(crot_years[start_plot_cut:-end_plot_cut], all_rmss[start_plot_cut:-end_plot_cut], c = 'black', linestyle='dashed',linewidth=1.0)
+                axs[1].plot(crot_years[start_plot_cut:-end_plot_cut], all_rs[start_plot_cut:-end_plot_cut], label = 'Persistence', linestyle='dashed', c = 'black', linewidth=1.0)
                 plotted_omni=True
+
+                #Add sunspot numbers
+                axs[0].fill_between(sunspot_dates, np.nanmax(all_rmss[start_plot_cut:-end_plot_cut])*sunspot_numbers/np.max(sunspot_numbers), color = 'grey', alpha=0.5)
+                axs[1].fill_between(sunspot_dates, np.nanmax(all_rs[start_plot_cut:-end_plot_cut])*sunspot_numbers/np.max(sunspot_numbers), color = 'grey', alpha=0.5)
+
+                # axs[0].plot(sunspot_dates, np.nanmax(all_rmss[start_plot_cut:-end_plot_cut])*sunspot_numbers/np.max(sunspot_numbers))
+                # axs[1].plot(sunspot_dates, np.nanmax(all_rs[start_plot_cut:-end_plot_cut])*sunspot_numbers/np.max(sunspot_numbers))
+
             #Best_metric is what we're comparing against, no matter what. Need to now do stats on each Carrington rotation.
             #I'll try to do this without being clever, but if it's too slow might have to be clever. Let's see.
             all_rmss = np.nan*crot_numbers
@@ -428,15 +433,16 @@ for a in [0]:
                 all_rmss[ci] = rms
                 all_rs[ci] = r
 
-            axs[0].plot(crot_numbers[start_plot_cut:-end_plot_cut], all_rmss[start_plot_cut:-end_plot_cut], linewidth=1.0)
-            axs[0].set_ylabel('RMS')
+            axs[0].plot(crot_years[start_plot_cut:-end_plot_cut], all_rmss[start_plot_cut:-end_plot_cut], linewidth=1.0)
+            axs[0].set_ylabel('RMS ($km/s$)')
             axs[0].set_xticks([])
-            axs[1].plot(crot_numbers[start_plot_cut:-end_plot_cut], all_rs[start_plot_cut:-end_plot_cut], label = make_nicetitle(i), linewidth=1.0)
+            axs[1].plot(crot_years[start_plot_cut:-end_plot_cut], all_rs[start_plot_cut:-end_plot_cut], label = make_nicetitle(i), linewidth=1.0)
             axs[1].set_ylabel('Correlation $r$')
-            axs[1].set_xlabel('Carrington Rotation')
+            axs[1].set_xlabel('Year')
 
             #print('Optimum factor', optimum_factor.x)
-
+            axs[0].set_xlim(2009.75, 2025.25)
+            axs[1].set_xlim(2009.75, 2025.25)
             #best_metric =  wsa_filtered#omni_shift_filtered
             xdata = best_metric
             ydata = omni_filtered
@@ -460,11 +466,12 @@ for a in [0]:
 
 
 
+
         handles, labels = axs[1].get_legend_handles_labels()
         fig.legend(handles, labels,
            loc="lower center",
            ncol=3,                  # adjust as needed
-           bbox_to_anchor=(0.5, -0.0), fontsize=8)
+           bbox_to_anchor=(0.5, 0.05), fontsize=8)
 
         plt.tight_layout(rect=[0, 0.08, 1, 1])
         plt.savefig(f'./paper/plots/3_default_time_plot.pdf')
